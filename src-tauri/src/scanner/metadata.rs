@@ -31,7 +31,7 @@ pub fn extract_metadata(path: &Path, library_root: &Path) -> Result<Track, AppEr
     let tag = tagged_file.primary_tag().or_else(|| tagged_file.first_tag());
     let properties = tagged_file.properties();
 
-    let (title, artist, album_artist, album, track_number, disc_number, year, genre) =
+    let (title, artist, album_artist, album, track_number, disc_number, year, genre, has_album_art) =
         if let Some(tag) = tag {
             (
                 tag.title().map(|s| s.to_string()),
@@ -43,9 +43,10 @@ pub fn extract_metadata(path: &Path, library_root: &Path) -> Result<Track, AppEr
                 tag.disk(),
                 tag.year(),
                 tag.genre().map(|s| s.to_string()),
+                !tag.pictures().is_empty(),
             )
         } else {
-            (None, None, None, None, None, None, None, None)
+            (None, None, None, None, None, None, None, None, false)
         };
 
     let duration_secs = properties.duration().as_secs_f64();
@@ -68,5 +69,6 @@ pub fn extract_metadata(path: &Path, library_root: &Path) -> Result<Track, AppEr
         file_size: file_meta.len(),
         modified_at,
         hash: None,
+        has_album_art,
     })
 }

@@ -36,6 +36,7 @@ pub fn run() {
             commands::library::scan_directory,
             commands::library::get_library_tree,
             commands::library::search_library,
+            commands::library::get_incomplete_tracks,
             commands::profile::create_profile,
             commands::profile::get_profile,
             commands::profile::list_profiles,

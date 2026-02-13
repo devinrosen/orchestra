@@ -204,3 +204,12 @@ pub async fn search_library(
     let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
     library_repo::search_tracks(&conn, &query)
 }
+
+#[tauri::command]
+pub async fn get_incomplete_tracks(
+    db: tauri::State<'_, Mutex<Connection>>,
+    root: String,
+) -> Result<Vec<Track>, AppError> {
+    let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
+    library_repo::get_incomplete_tracks(&conn, &root)
+}

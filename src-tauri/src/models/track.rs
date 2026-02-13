@@ -19,6 +19,7 @@ pub struct Track {
     pub file_size: u64,
     pub modified_at: i64,
     pub hash: Option<String>,
+    pub has_album_art: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

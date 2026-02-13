@@ -7,12 +7,14 @@
   import FolderTreeView from "../lib/components/FolderTreeView.svelte";
   import MetadataEditor from "../lib/components/MetadataEditor.svelte";
   import AlbumEditor from "../lib/components/AlbumEditor.svelte";
+  import MetadataReport from "../lib/components/MetadataReport.svelte";
   import ProgressBar from "../lib/components/ProgressBar.svelte";
   import { libraryStore } from "../lib/stores/library.svelte";
   import { playerStore } from "../lib/stores/player.svelte";
 
   let editingTrack = $state<Track | null>(null);
   let editingAlbum = $state<{ tracks: Track[]; albumName: string; artistName: string } | null>(null);
+  let showMetadataReport = $state(false);
 
   const viewModes: { mode: LibraryViewMode; label: string }[] = [
     { mode: "artist", label: "Artists" },
@@ -51,6 +53,11 @@
     playerStore.playAlbum(tracks);
   }
 
+  function handleReportEditTrack(track: Track) {
+    showMetadataReport = false;
+    editingTrack = track;
+  }
+
   async function handleTrackSaved() {
     editingTrack = null;
     if (libraryStore.libraryRoot) {
@@ -87,6 +94,12 @@
         class="search-input"
       />
       {#if libraryStore.tree && !libraryStore.scanning}
+        <button class="secondary report-btn" onclick={() => (showMetadataReport = true)}>
+          Metadata Report
+          {#if libraryStore.incompleteCount > 0}
+            <span class="report-badge">{libraryStore.incompleteCount}</span>
+          {/if}
+        </button>
         <button class="secondary" onclick={() => libraryStore.scan(libraryStore.libraryRoot)}>
           Rescan
         </button>
@@ -200,6 +213,14 @@
       artistName={editingAlbum.artistName}
       onSave={handleAlbumSaved}
       onClose={() => (editingAlbum = null)}
+    />
+  {/if}
+
+  {#if showMetadataReport && libraryStore.libraryRoot}
+    <MetadataReport
+      libraryRoot={libraryStore.libraryRoot}
+      onEditTrack={handleReportEditTrack}
+      onClose={() => (showMetadataReport = false)}
     />
   {/if}
 </div>
@@ -352,4 +373,23 @@
   .result-title { flex: 2; }
   .result-artist { flex: 1; color: var(--text-secondary); }
   .result-album { flex: 1; color: var(--text-secondary); }
+
+  .report-btn {
+    position: relative;
+  }
+
+  .report-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--danger, #e94560);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    padding: 0 4px;
+    margin-left: 4px;
+  }
 </style>

@@ -16,6 +16,7 @@ export interface Track {
   file_size: number;
   modified_at: number;
   hash: string | null;
+  has_album_art: boolean;
 }
 
 export interface AlbumNode {
