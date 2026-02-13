@@ -24,6 +24,12 @@ pub async fn scan_directory(
 
     let start = std::time::Instant::now();
 
+    // Load existing track fingerprints for incremental scan
+    let existing = {
+        let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
+        library_repo::get_track_fingerprints(&conn, &path)?
+    };
+
     // Quick count of immediate subdirectories for progress tracking
     let subdirs: Vec<String> = std::fs::read_dir(root)
         .into_iter()
@@ -34,12 +40,16 @@ pub async fn scan_directory(
         .collect();
     let dirs_total = subdirs.len().max(1);
 
-    let mut tracks = Vec::new();
+    let mut new_tracks = Vec::new();
+    let mut all_file_paths = Vec::new();
     let mut files_found: usize = 0;
+    let mut files_skipped: usize = 0;
     let mut current_dir = String::new();
     let mut dirs_completed: usize = 0;
     for file_path in walker::walk_directory_iter(root, &[]) {
         files_found += 1;
+        let path_str = file_path.to_string_lossy().to_string();
+        all_file_paths.push(path_str.clone());
 
         // Track top-level subdirectory transitions
         let top_dir = file_path.strip_prefix(root)
@@ -54,14 +64,32 @@ pub async fn scan_directory(
 
         let _ = on_progress.send(ProgressEvent::ScanProgress {
             files_found,
-            files_processed: tracks.len(),
+            files_processed: new_tracks.len() + files_skipped,
             current_file: file_path.file_name().unwrap_or_default().to_string_lossy().to_string(),
             dirs_total,
             dirs_completed,
         });
 
+        // Check if file is unchanged (same size + mtime) — skip expensive metadata extraction
+        if let Ok(fs_meta) = std::fs::metadata(&file_path) {
+            let fs_size = fs_meta.len();
+            let fs_mtime = fs_meta
+                .modified()
+                .ok()
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_secs() as i64)
+                .unwrap_or(0);
+
+            if let Some(&(db_size, db_mtime)) = existing.get(&path_str) {
+                if fs_size == db_size && fs_mtime == db_mtime {
+                    files_skipped += 1;
+                    continue;
+                }
+            }
+        }
+
         match metadata::extract_metadata(&file_path, root) {
-            Ok(track) => tracks.push(track),
+            Ok(track) => new_tracks.push(track),
             Err(e) => {
                 eprintln!("Failed to read metadata for {}: {}", file_path.display(), e);
             }
@@ -71,22 +99,22 @@ pub async fn scan_directory(
     // Store in database
     {
         let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
-        let file_paths: Vec<String> = tracks.iter().map(|t| t.file_path.clone()).collect();
 
-        for track in &tracks {
+        for track in &new_tracks {
             library_repo::upsert_track(&conn, track)?;
         }
 
-        library_repo::remove_tracks_not_in(&conn, &path, &file_paths)?;
+        library_repo::remove_tracks_not_in(&conn, &path, &all_file_paths)?;
     }
 
+    let total = new_tracks.len() + files_skipped;
     let duration_ms = start.elapsed().as_millis() as u64;
     let _ = on_progress.send(ProgressEvent::ScanComplete {
-        total_files: tracks.len(),
+        total_files: total,
         duration_ms,
     });
 
-    Ok(tracks.len())
+    Ok(total)
 }
 
 #[tauri::command]

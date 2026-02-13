@@ -66,7 +66,12 @@
         oninput={onSearchInput}
         class="search-input"
       />
-      <button class="primary" onclick={pickDirectory}>
+      {#if libraryStore.tree && !libraryStore.scanning}
+        <button class="secondary" onclick={() => libraryStore.scan(libraryStore.libraryRoot)}>
+          Rescan
+        </button>
+      {/if}
+      <button class="primary" onclick={pickDirectory} disabled={libraryStore.scanning}>
         {libraryStore.scanning ? "Scanning..." : "Open Directory"}
       </button>
     </div>

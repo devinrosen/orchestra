@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use rusqlite::{params, Connection};
 
 use crate::error::AppError;
@@ -66,6 +67,30 @@ pub fn remove_tracks_not_in(
 
     let deleted = conn.execute(&sql, params_ref.as_slice())?;
     Ok(deleted)
+}
+
+/// Returns a map of file_path -> (file_size, modified_at) for all tracks in a library root.
+/// Used by incremental scan to skip unchanged files.
+pub fn get_track_fingerprints(
+    conn: &Connection,
+    library_root: &str,
+) -> Result<HashMap<String, (u64, i64)>, AppError> {
+    let mut stmt = conn.prepare(
+        "SELECT file_path, file_size, modified_at FROM tracks WHERE library_root = ?1",
+    )?;
+    let rows = stmt.query_map(params![library_root], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, u64>(1)?,
+            row.get::<_, i64>(2)?,
+        ))
+    })?;
+    let mut map = HashMap::new();
+    for row in rows {
+        let (path, size, mtime) = row?;
+        map.insert(path, (size, mtime));
+    }
+    Ok(map)
 }
 
 pub fn get_library_tree(conn: &Connection, library_root: &str) -> Result<LibraryTree, AppError> {
