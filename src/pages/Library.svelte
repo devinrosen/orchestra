@@ -1,8 +1,14 @@
 <script lang="ts">
   import { open } from "@tauri-apps/plugin-dialog";
+  import type { Track } from "../lib/api/types";
   import TreeView from "../lib/components/TreeView.svelte";
+  import MetadataEditor from "../lib/components/MetadataEditor.svelte";
+  import AlbumEditor from "../lib/components/AlbumEditor.svelte";
   import ProgressBar from "../lib/components/ProgressBar.svelte";
   import { libraryStore } from "../lib/stores/library.svelte";
+
+  let editingTrack = $state<Track | null>(null);
+  let editingAlbum = $state<{ tracks: Track[]; albumName: string; artistName: string } | null>(null);
 
   async function pickDirectory() {
     const selected = await open({ directory: true, multiple: false, title: "Select Music Directory" });
@@ -16,6 +22,28 @@
     const value = (e.target as HTMLInputElement).value;
     clearTimeout(searchTimeout);
     searchTimeout = setTimeout(() => libraryStore.search(value), 300);
+  }
+
+  function handleEditTrack(track: Track) {
+    editingTrack = track;
+  }
+
+  function handleEditAlbum(tracks: Track[], albumName: string, artistName: string) {
+    editingAlbum = { tracks, albumName, artistName };
+  }
+
+  async function handleTrackSaved() {
+    editingTrack = null;
+    if (libraryStore.libraryRoot) {
+      await libraryStore.loadTree(libraryStore.libraryRoot);
+    }
+  }
+
+  async function handleAlbumSaved() {
+    editingAlbum = null;
+    if (libraryStore.libraryRoot) {
+      await libraryStore.loadTree(libraryStore.libraryRoot);
+    }
   }
 </script>
 
@@ -71,11 +99,33 @@
       <span class="track-count">{libraryStore.tree.total_tracks} tracks</span>
       <span class="artist-count">{libraryStore.tree.artists.length} artists</span>
     </div>
-    <TreeView artists={libraryStore.tree.artists} />
+    <TreeView
+      artists={libraryStore.tree.artists}
+      onEditTrack={handleEditTrack}
+      onEditAlbum={handleEditAlbum}
+    />
   {:else if !libraryStore.scanning}
     <div class="empty-state">
       <p>No library loaded. Click "Open Directory" to scan a music folder.</p>
     </div>
+  {/if}
+
+  {#if editingTrack}
+    <MetadataEditor
+      track={editingTrack}
+      onSave={handleTrackSaved}
+      onClose={() => (editingTrack = null)}
+    />
+  {/if}
+
+  {#if editingAlbum}
+    <AlbumEditor
+      tracks={editingAlbum.tracks}
+      albumName={editingAlbum.albumName}
+      artistName={editingAlbum.artistName}
+      onSave={handleAlbumSaved}
+      onClose={() => (editingAlbum = null)}
+    />
   {/if}
 </div>
 

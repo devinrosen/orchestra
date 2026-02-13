@@ -1,7 +1,15 @@
 <script lang="ts">
   import type { ArtistNode, AlbumNode, Track } from "../api/types";
 
-  let { artists = [] }: { artists: ArtistNode[] } = $props();
+  let {
+    artists = [],
+    onEditTrack,
+    onEditAlbum,
+  }: {
+    artists: ArtistNode[];
+    onEditTrack?: (track: Track) => void;
+    onEditAlbum?: (tracks: Track[], albumName: string, artistName: string) => void;
+  } = $props();
 
   let expandedArtists = $state<Set<string>>(new Set());
   let expandedAlbums = $state<Set<string>>(new Set());
@@ -48,23 +56,36 @@
           {#each artist.albums as album}
             {@const albumKey = `${artist.name}::${album.name}`}
             <div class="album-node">
-              <button class="tree-toggle" onclick={() => toggleAlbum(albumKey)}>
-                <span class="chevron" class:expanded={expandedAlbums.has(albumKey)}>&#9654;</span>
-                <span class="album-name">{album.name}</span>
-                {#if album.year}<span class="year">({album.year})</span>{/if}
-                <span class="count">{album.tracks.length} track{album.tracks.length !== 1 ? "s" : ""}</span>
-              </button>
+              <div class="album-header">
+                <button class="tree-toggle" onclick={() => toggleAlbum(albumKey)}>
+                  <span class="chevron" class:expanded={expandedAlbums.has(albumKey)}>&#9654;</span>
+                  <span class="album-name">{album.name}</span>
+                  {#if album.year}<span class="year">({album.year})</span>{/if}
+                  <span class="count">{album.tracks.length} track{album.tracks.length !== 1 ? "s" : ""}</span>
+                </button>
+                {#if onEditAlbum}
+                  <button
+                    class="edit-btn"
+                    onclick={(e) => { e.stopPropagation(); onEditAlbum(album.tracks, album.name, artist.name); }}
+                    title="Edit album metadata"
+                  >&#9998;</button>
+                {/if}
+              </div>
 
               {#if expandedAlbums.has(albumKey)}
                 <div class="children">
                   {#each album.tracks as track}
-                    <div class="track-node">
+                    <button
+                      class="track-node"
+                      onclick={() => onEditTrack?.(track)}
+                      title="Edit track metadata"
+                    >
                       <span class="track-num">{track.track_number ?? "-"}</span>
                       <span class="track-title">{track.title ?? track.relative_path}</span>
                       <span class="track-duration">{formatDuration(track.duration_secs)}</span>
                       <span class="track-format">{track.format.toUpperCase()}</span>
                       <span class="track-size">{formatSize(track.file_size)}</span>
-                    </div>
+                    </button>
                   {/each}
                 </div>
               {/if}
@@ -134,6 +155,35 @@
     padding-left: 20px;
   }
 
+  .album-header {
+    display: flex;
+    align-items: center;
+  }
+
+  .album-header .tree-toggle {
+    flex: 1;
+  }
+
+  .edit-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 14px;
+    padding: 4px 8px;
+    border-radius: var(--radius);
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .album-header:hover .edit-btn {
+    opacity: 1;
+  }
+
+  .edit-btn:hover {
+    color: var(--accent);
+    background: var(--bg-tertiary);
+  }
+
   .track-node {
     display: flex;
     align-items: center;
@@ -141,6 +191,12 @@
     padding: 4px 8px;
     border-radius: var(--radius);
     font-size: 13px;
+    width: 100%;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    text-align: left;
+    cursor: pointer;
   }
 
   .track-node:hover {

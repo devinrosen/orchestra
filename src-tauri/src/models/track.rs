@@ -45,6 +45,25 @@ pub const AUDIO_EXTENSIONS: &[&str] = &[
     "flac", "mp3", "m4a", "aac", "wav", "alac", "ogg", "opus", "wma",
 ];
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrackMetadataUpdate {
+    pub file_path: String,
+    pub title: Option<String>,
+    pub artist: Option<String>,
+    pub album_artist: Option<String>,
+    pub album: Option<String>,
+    pub track_number: Option<u32>,
+    pub disc_number: Option<u32>,
+    pub year: Option<i32>,
+    pub genre: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AlbumArt {
+    pub data: String,
+    pub mime_type: String,
+}
+
 pub fn is_audio_file(path: &std::path::Path) -> bool {
     path.extension()
         .and_then(|e| e.to_str())

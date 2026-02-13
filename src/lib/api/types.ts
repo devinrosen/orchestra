@@ -35,6 +35,23 @@ export interface LibraryTree {
   total_tracks: number;
 }
 
+export interface TrackMetadataUpdate {
+  file_path: string;
+  title?: string | null;
+  artist?: string | null;
+  album_artist?: string | null;
+  album?: string | null;
+  track_number?: number | null;
+  disc_number?: number | null;
+  year?: number | null;
+  genre?: string | null;
+}
+
+export interface AlbumArt {
+  data: string;
+  mime_type: string;
+}
+
 export type SyncMode = "one_way" | "two_way";
 
 export interface SyncProfile {

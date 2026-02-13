@@ -13,6 +13,8 @@ import type {
   DeviceWithStatus,
   RegisterDeviceRequest,
   ArtistSummary,
+  TrackMetadataUpdate,
+  AlbumArt,
 } from "./types";
 
 export function scanDirectory(
@@ -135,4 +137,12 @@ export function executeDeviceSync(
 
 export function listArtists(): Promise<ArtistSummary[]> {
   return invoke("list_artists");
+}
+
+export function getTrackArtwork(filePath: string): Promise<AlbumArt | null> {
+  return invoke("get_track_artwork", { filePath });
+}
+
+export function updateTrackMetadata(updates: TrackMetadataUpdate[]): Promise<Track[]> {
+  return invoke("update_track_metadata", { updates });
 }
