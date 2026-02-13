@@ -245,6 +245,31 @@ pub async fn execute_device_sync(
 }
 
 #[tauri::command]
+pub async fn eject_device(
+    db: tauri::State<'_, Mutex<Connection>>,
+    device_id: String,
+) -> Result<(), AppError> {
+    let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
+    let device = device_repo::get_device(&conn, &device_id)?;
+
+    let mount_path = device
+        .mount_path
+        .as_ref()
+        .ok_or_else(|| AppError::DeviceDisconnected(device.name.clone()))?;
+
+    if !std::path::Path::new(mount_path).exists() {
+        return Err(AppError::DeviceDisconnected(device.name.clone()));
+    }
+
+    crate::device::eject::eject_volume(mount_path)?;
+
+    // Clear the mount_path in the database since the device is now ejected
+    device_repo::update_mount_path(&conn, &device_id, "")?;
+
+    Ok(())
+}
+
+#[tauri::command]
 pub async fn list_artists(
     db: tauri::State<'_, Mutex<Connection>>,
 ) -> Result<Vec<ArtistSummary>, AppError> {

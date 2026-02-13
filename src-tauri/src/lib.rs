@@ -54,6 +54,7 @@ pub fn run() {
             commands::device_cmd::set_device_artists,
             commands::device_cmd::compute_device_diff,
             commands::device_cmd::execute_device_sync,
+            commands::device_cmd::eject_device,
             commands::device_cmd::list_artists,
             commands::metadata_cmd::get_track_artwork,
             commands::metadata_cmd::update_track_metadata,

@@ -13,6 +13,7 @@
   let registerMusicFolder = $state("");
   let registeringVolume = $state<DetectedVolume | null>(null);
   let configuringDeviceId = $state<string | null>(null);
+  let ejectingDeviceId = $state<string | null>(null);
 
   onMount(() => {
     deviceStore.loadDevices();
@@ -90,6 +91,20 @@
     await deviceStore.deleteDevice(deviceId);
   }
 
+  function handleEjectRequest(deviceId: string) {
+    ejectingDeviceId = deviceId;
+  }
+
+  async function confirmEject() {
+    if (!ejectingDeviceId) return;
+    await deviceStore.ejectDevice(ejectingDeviceId);
+    ejectingDeviceId = null;
+  }
+
+  function cancelEject() {
+    ejectingDeviceId = null;
+  }
+
   function formatSize(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -130,9 +145,11 @@
           <DeviceCard
             {device}
             busy={isBusy}
+            ejecting={deviceStore.ejecting === device.device.id}
             onConfigure={() => handleConfigure(device.device.id)}
             onSync={() => handleSync(device.device.id)}
             onDelete={() => handleDelete(device.device.id)}
+            onEject={() => handleEjectRequest(device.device.id)}
           />
         {/each}
       </div>
@@ -182,6 +199,23 @@
             <button class="primary" onclick={confirmRegister} disabled={!registerName.trim()}>
               Register
             </button>
+          </div>
+        </div>
+      </div>
+    {/if}
+
+    {#if ejectingDeviceId}
+      {@const ejectDevice = deviceStore.devices.find((d) => d.device.id === ejectingDeviceId)}
+      <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+      <div class="register-dialog-overlay" role="presentation" onclick={cancelEject}>
+        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions a11y_interactive_supports_focus -->
+        <div class="register-dialog" role="dialog" onclick={(e) => e.stopPropagation()}>
+          <h3>Eject Device</h3>
+          <p>Are you sure you want to eject "{ejectDevice?.device.name}"?</p>
+          <p class="hint">Make sure no sync is in progress before ejecting.</p>
+          <div class="dialog-actions">
+            <button class="secondary" onclick={cancelEject}>Cancel</button>
+            <button class="primary" onclick={confirmEject}>Eject</button>
           </div>
         </div>
       </div>
@@ -422,6 +456,12 @@
     display: flex;
     gap: 8px;
     justify-content: flex-end;
+  }
+
+  .hint {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 0;
   }
 
   .loading {
