@@ -1,5 +1,6 @@
-import type { LibraryTree, Track, ProgressEvent } from "../api/types";
+import type { LibraryTree, Track, ProgressEvent, LibraryViewMode, AlbumEntry, GenreNode, FolderNode } from "../api/types";
 import * as commands from "../api/commands";
+import { flattenTree, groupByAlbum, groupByGenre, groupByFolder } from "../utils/library-grouping";
 
 class LibraryStore {
   tree = $state<LibraryTree | null>(null);
@@ -9,6 +10,30 @@ class LibraryStore {
   searchResults = $state<Track[]>([]);
   searchQuery = $state("");
   error = $state<string | null>(null);
+  viewMode = $state<LibraryViewMode>("artist");
+
+  allTracks = $derived<Track[]>(this.tree ? flattenTree(this.tree.artists) : []);
+
+  albumEntries = $derived<AlbumEntry[]>(
+    this.viewMode === "album" ? groupByAlbum(this.allTracks) : []
+  );
+
+  genreNodes = $derived<GenreNode[]>(
+    this.viewMode === "genre" ? groupByGenre(this.allTracks) : []
+  );
+
+  folderTree = $derived<FolderNode | null>(
+    this.viewMode === "folder" ? groupByFolder(this.allTracks) : null
+  );
+
+  async setViewMode(mode: LibraryViewMode) {
+    this.viewMode = mode;
+    try {
+      await commands.setSetting("library_view_mode", mode);
+    } catch (_) {
+      // non-critical — ignore persistence failures
+    }
+  }
 
   async scan(path: string) {
     this.scanning = true;
@@ -52,6 +77,10 @@ class LibraryStore {
   async init() {
     try {
       const root = await commands.getSetting("library_root");
+      const savedMode = await commands.getSetting("library_view_mode");
+      if (savedMode && ["artist", "album", "genre", "folder"].includes(savedMode)) {
+        this.viewMode = savedMode as LibraryViewMode;
+      }
       if (root) {
         await this.loadTree(root);
       }

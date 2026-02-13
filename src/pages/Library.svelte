@@ -1,7 +1,10 @@
 <script lang="ts">
   import { open } from "@tauri-apps/plugin-dialog";
-  import type { Track } from "../lib/api/types";
+  import type { Track, LibraryViewMode } from "../lib/api/types";
   import TreeView from "../lib/components/TreeView.svelte";
+  import AlbumListView from "../lib/components/AlbumListView.svelte";
+  import GenreTreeView from "../lib/components/GenreTreeView.svelte";
+  import FolderTreeView from "../lib/components/FolderTreeView.svelte";
   import MetadataEditor from "../lib/components/MetadataEditor.svelte";
   import AlbumEditor from "../lib/components/AlbumEditor.svelte";
   import ProgressBar from "../lib/components/ProgressBar.svelte";
@@ -10,6 +13,13 @@
 
   let editingTrack = $state<Track | null>(null);
   let editingAlbum = $state<{ tracks: Track[]; albumName: string; artistName: string } | null>(null);
+
+  const viewModes: { mode: LibraryViewMode; label: string }[] = [
+    { mode: "artist", label: "Artists" },
+    { mode: "album", label: "Albums" },
+    { mode: "genre", label: "Genres" },
+    { mode: "folder", label: "Folders" },
+  ];
 
   async function pickDirectory() {
     const selected = await open({ directory: true, multiple: false, title: "Select Music Directory" });
@@ -53,6 +63,16 @@
     if (libraryStore.libraryRoot) {
       await libraryStore.loadTree(libraryStore.libraryRoot);
     }
+  }
+
+  function infoSummary(): string {
+    const tree = libraryStore.tree;
+    if (!tree) return "";
+    const mode = libraryStore.viewMode;
+    if (mode === "artist") return `${tree.artists.length} artists`;
+    if (mode === "album") return `${libraryStore.albumEntries.length} albums`;
+    if (mode === "genre") return `${libraryStore.genreNodes.length} genres`;
+    return "";
   }
 </script>
 
@@ -112,15 +132,53 @@
     <div class="library-info">
       <span class="root-path">{libraryStore.tree.root}</span>
       <span class="track-count">{libraryStore.tree.total_tracks} tracks</span>
-      <span class="artist-count">{libraryStore.tree.artists.length} artists</span>
+      <span class="info-summary">{infoSummary()}</span>
     </div>
-    <TreeView
-      artists={libraryStore.tree.artists}
-      onEditTrack={handleEditTrack}
-      onEditAlbum={handleEditAlbum}
-      onPlayTrack={handlePlayTrack}
-      onPlayAlbum={handlePlayAlbum}
-    />
+
+    <div class="view-mode-toggle">
+      {#each viewModes as { mode, label }}
+        <button
+          class="mode-btn"
+          class:active={libraryStore.viewMode === mode}
+          onclick={() => libraryStore.setViewMode(mode)}
+        >
+          {label}
+        </button>
+      {/each}
+    </div>
+
+    {#if libraryStore.viewMode === "artist"}
+      <TreeView
+        artists={libraryStore.tree.artists}
+        onEditTrack={handleEditTrack}
+        onEditAlbum={handleEditAlbum}
+        onPlayTrack={handlePlayTrack}
+        onPlayAlbum={handlePlayAlbum}
+      />
+    {:else if libraryStore.viewMode === "album"}
+      <AlbumListView
+        albums={libraryStore.albumEntries}
+        onEditTrack={handleEditTrack}
+        onEditAlbum={handleEditAlbum}
+        onPlayTrack={handlePlayTrack}
+        onPlayAlbum={handlePlayAlbum}
+      />
+    {:else if libraryStore.viewMode === "genre"}
+      <GenreTreeView
+        genres={libraryStore.genreNodes}
+        onEditTrack={handleEditTrack}
+        onEditAlbum={handleEditAlbum}
+        onPlayTrack={handlePlayTrack}
+        onPlayAlbum={handlePlayAlbum}
+      />
+    {:else if libraryStore.viewMode === "folder" && libraryStore.folderTree}
+      <FolderTreeView
+        root={libraryStore.folderTree}
+        onEditTrack={handleEditTrack}
+        onPlayTrack={handlePlayTrack}
+        onPlayFolder={handlePlayAlbum}
+      />
+    {/if}
   {:else if !libraryStore.scanning}
     <div class="empty-state">
       <p>No library loaded. Click "Open Directory" to scan a music folder.</p>
@@ -209,6 +267,37 @@
     background: var(--bg-secondary);
     padding: 2px 8px;
     border-radius: var(--radius);
+  }
+
+  .view-mode-toggle {
+    display: flex;
+    gap: 0;
+    flex-shrink: 0;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    padding: 2px;
+    width: fit-content;
+  }
+
+  .mode-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    padding: 5px 14px;
+    font-size: 13px;
+    border-radius: calc(var(--radius) - 2px);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .mode-btn:hover {
+    color: var(--text-primary);
+  }
+
+  .mode-btn.active {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-weight: 500;
   }
 
   .empty-state {

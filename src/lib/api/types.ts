@@ -35,6 +35,27 @@ export interface LibraryTree {
   total_tracks: number;
 }
 
+export type LibraryViewMode = "artist" | "album" | "genre" | "folder";
+
+export interface AlbumEntry {
+  name: string;
+  artist: string;
+  year: number | null;
+  tracks: Track[];
+}
+
+export interface GenreNode {
+  name: string;
+  albums: AlbumEntry[];
+}
+
+export interface FolderNode {
+  name: string;
+  path: string;
+  children: FolderNode[];
+  tracks: Track[];
+}
+
 export interface TrackMetadataUpdate {
   file_path: string;
   title?: string | null;

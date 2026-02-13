@@ -2,11 +2,12 @@
 
 ## Library
 
-- [ ] **Rescan library for updates** — Once a library is loaded, there's no way to re-scan it to pick up new/changed/deleted files without restarting the app. Add a "Rescan" button that re-scans the current `libraryRoot` and updates the database incrementally.
+- [x] **Rescan library for updates** — Once a library is loaded, there's no way to re-scan it to pick up new/changed/deleted files without restarting the app. Add a "Rescan" button that re-scans the current `libraryRoot` and updates the database incrementally.
 - [ ] **Duplicate detection** — Scan the library for duplicate tracks by content hash or metadata similarity, and provide options to review and remove duplicates.
 - [ ] **Missing/incomplete metadata report** — Flag tracks that are missing key metadata fields (title, artist, album, album art) so users can review and fix them.
 - [ ] **Auto-fetch album art** — Automatically look up and download album artwork from online sources (MusicBrainz, Cover Art Archive) for tracks or albums missing art.
 - [ ] **File organization/renaming** — Auto-rename and move files into a folder structure based on metadata patterns (e.g. `Artist/Album/01 - Title.flac`) with a preview before applying.
+- [x] **Multiple library view modes** — In addition to the current Artist > Album > Track tree, support alternative browse modes: by Album, by Genre, and by Folder. A segmented toggle at the top of the library view switches between modes. Preference persists across restarts. Folder view includes a play button to queue all tracks in a folder.
 - [ ] **Library statistics** — Dashboard showing format breakdown, genre distribution, total library size, number of artists/albums/tracks, and average bitrate.
 
 ## UI / UX
@@ -17,7 +18,7 @@
 
 ## Playback
 
-- [ ] **Play music by song or album** — Add audio playback support so users can play individual tracks or full albums directly from the library view.
+- [x] **Play music by song or album** — Add audio playback support so users can play individual tracks or full albums directly from the library view.
 - [ ] **Playlist support** — Create, manage, and reorder playlists within the app, with export to M3U/PLS formats for use in other players.
 
 ## Device Sync
