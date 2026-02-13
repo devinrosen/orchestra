@@ -1,5 +1,6 @@
 mod commands;
 mod db;
+mod device;
 mod error;
 mod models;
 mod scanner;
@@ -46,6 +47,14 @@ pub fn run() {
             commands::settings::get_setting,
             commands::settings::set_setting,
             commands::settings::get_all_settings,
+            commands::device_cmd::detect_volumes,
+            commands::device_cmd::register_device,
+            commands::device_cmd::list_devices,
+            commands::device_cmd::delete_device,
+            commands::device_cmd::set_device_artists,
+            commands::device_cmd::compute_device_diff,
+            commands::device_cmd::execute_device_sync,
+            commands::device_cmd::list_artists,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

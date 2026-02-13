@@ -9,6 +9,10 @@ import type {
   Conflict,
   ConflictResolution,
   ProgressEvent,
+  DetectedVolume,
+  DeviceWithStatus,
+  RegisterDeviceRequest,
+  ArtistSummary,
 } from "./types";
 
 export function scanDirectory(
@@ -84,4 +88,51 @@ export function setSetting(key: string, value: string): Promise<void> {
 
 export function getAllSettings(): Promise<[string, string][]> {
   return invoke("get_all_settings");
+}
+
+export function detectVolumes(): Promise<DetectedVolume[]> {
+  return invoke("detect_volumes");
+}
+
+export function registerDevice(request: RegisterDeviceRequest): Promise<DeviceWithStatus> {
+  return invoke("register_device", { request });
+}
+
+export function listDevices(): Promise<DeviceWithStatus[]> {
+  return invoke("list_devices");
+}
+
+export function deleteDevice(deviceId: string): Promise<void> {
+  return invoke("delete_device", { deviceId });
+}
+
+export function setDeviceArtists(deviceId: string, artists: string[]): Promise<void> {
+  return invoke("set_device_artists", { deviceId, artists });
+}
+
+export function computeDeviceDiff(
+  deviceId: string,
+  onProgress: (event: ProgressEvent) => void,
+): Promise<DiffResult> {
+  const channel = new Channel<ProgressEvent>();
+  channel.onmessage = onProgress;
+  return invoke("compute_device_diff", { deviceId, onProgress: channel });
+}
+
+export function executeDeviceSync(
+  deviceId: string,
+  diffResult: DiffResult,
+  onProgress: (event: ProgressEvent) => void,
+): Promise<number> {
+  const channel = new Channel<ProgressEvent>();
+  channel.onmessage = onProgress;
+  return invoke("execute_device_sync", {
+    deviceId,
+    diffResult,
+    onProgress: channel,
+  });
+}
+
+export function listArtists(): Promise<ArtistSummary[]> {
+  return invoke("list_artists");
 }

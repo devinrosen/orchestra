@@ -18,10 +18,16 @@ pub enum ProgressEvent {
         total_files: usize,
         duration_ms: u64,
     },
+    #[serde(rename = "device_scan_progress")]
+    DeviceScanProgress {
+        files_found: usize,
+        current_file: String,
+    },
     #[serde(rename = "diff_progress")]
     DiffProgress {
         files_compared: usize,
         total_files: usize,
+        current_file: String,
     },
     #[serde(rename = "diff_complete")]
     DiffComplete { total_entries: usize },

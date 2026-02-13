@@ -1,3 +1,4 @@
+pub mod device_cmd;
 pub mod library;
 pub mod profile;
 pub mod settings;

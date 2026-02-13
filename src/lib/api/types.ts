@@ -110,11 +110,56 @@ export interface ConflictResolution {
   resolution: Resolution;
 }
 
+export interface DetectedVolume {
+  volume_uuid: string;
+  volume_name: string;
+  mount_path: string;
+  capacity_bytes: number;
+  free_bytes: number;
+  bus_protocol: string;
+  already_registered: boolean;
+}
+
+export interface Device {
+  id: string;
+  name: string;
+  volume_uuid: string;
+  volume_name: string;
+  mount_path: string | null;
+  capacity_bytes: number | null;
+  music_folder: string;
+  created_at: number;
+  last_synced_at: number | null;
+}
+
+export interface DeviceWithStatus {
+  device: Device;
+  connected: boolean;
+  selected_artists: string[];
+}
+
+export interface RegisterDeviceRequest {
+  name: string;
+  volume_uuid: string;
+  volume_name: string;
+  mount_path: string;
+  capacity_bytes: number | null;
+  music_folder: string;
+}
+
+export interface ArtistSummary {
+  name: string;
+  album_count: number;
+  track_count: number;
+  total_size: number;
+}
+
 export type ProgressEvent =
   | { type: "scan_started"; path: string }
   | { type: "scan_progress"; files_found: number; files_processed: number; current_file: string; dirs_total: number; dirs_completed: number }
   | { type: "scan_complete"; total_files: number; duration_ms: number }
-  | { type: "diff_progress"; files_compared: number; total_files: number }
+  | { type: "device_scan_progress"; files_found: number; current_file: string }
+  | { type: "diff_progress"; files_compared: number; total_files: number; current_file: string }
   | { type: "diff_complete"; total_entries: number }
   | { type: "sync_started"; total_files: number; total_bytes: number }
   | { type: "sync_progress"; files_completed: number; total_files: number; bytes_completed: number; total_bytes: number; current_file: string }

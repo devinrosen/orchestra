@@ -1,6 +1,7 @@
 use rusqlite::{params, Connection};
 
 use crate::error::AppError;
+use crate::models::device::ArtistSummary;
 use crate::models::track::{AlbumNode, ArtistNode, LibraryTree, Track};
 
 pub fn upsert_track(conn: &Connection, track: &Track) -> Result<(), AppError> {
@@ -145,6 +146,87 @@ pub fn get_library_tree(conn: &Connection, library_root: &str) -> Result<Library
         artists,
         total_tracks,
     })
+}
+
+pub fn list_artists(conn: &Connection, library_root: &str) -> Result<Vec<ArtistSummary>, AppError> {
+    let mut stmt = conn.prepare(
+        "SELECT COALESCE(album_artist, artist, 'Unknown Artist') as display_artist,
+                COUNT(DISTINCT album) as album_count,
+                COUNT(*) as track_count,
+                SUM(file_size) as total_size
+         FROM tracks
+         WHERE library_root = ?1
+         GROUP BY display_artist
+         ORDER BY display_artist COLLATE NOCASE",
+    )?;
+    let artists = stmt
+        .query_map(params![library_root], |row| {
+            Ok(ArtistSummary {
+                name: row.get(0)?,
+                album_count: row.get::<_, i64>(1)? as usize,
+                track_count: row.get::<_, i64>(2)? as usize,
+                total_size: row.get::<_, i64>(3)? as u64,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(artists)
+}
+
+pub fn get_tracks_by_artists(
+    conn: &Connection,
+    library_root: &str,
+    artist_names: &[String],
+) -> Result<Vec<Track>, AppError> {
+    if artist_names.is_empty() {
+        return Ok(vec![]);
+    }
+
+    let placeholders: Vec<String> = (0..artist_names.len())
+        .map(|i| format!("?{}", i + 2))
+        .collect();
+    let sql = format!(
+        "SELECT id, file_path, relative_path, library_root, title, artist, album_artist, album,
+         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash
+         FROM tracks
+         WHERE library_root = ?1
+           AND COALESCE(album_artist, artist, 'Unknown Artist') IN ({})
+         ORDER BY COALESCE(album_artist, artist) COLLATE NOCASE, album COLLATE NOCASE, disc_number, track_number",
+        placeholders.join(",")
+    );
+
+    let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+    param_values.push(Box::new(library_root.to_string()));
+    for name in artist_names {
+        param_values.push(Box::new(name.clone()));
+    }
+    let params_ref: Vec<&dyn rusqlite::types::ToSql> =
+        param_values.iter().map(|p| p.as_ref()).collect();
+
+    let mut stmt = conn.prepare(&sql)?;
+    let tracks = stmt
+        .query_map(params_ref.as_slice(), |row| {
+            Ok(Track {
+                id: Some(row.get(0)?),
+                file_path: row.get(1)?,
+                relative_path: row.get(2)?,
+                library_root: row.get(3)?,
+                title: row.get(4)?,
+                artist: row.get(5)?,
+                album_artist: row.get(6)?,
+                album: row.get(7)?,
+                track_number: row.get(8)?,
+                disc_number: row.get(9)?,
+                year: row.get(10)?,
+                genre: row.get(11)?,
+                duration_secs: row.get(12)?,
+                format: row.get(13)?,
+                file_size: row.get(14)?,
+                modified_at: row.get(15)?,
+                hash: row.get(16)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(tracks)
 }
 
 pub fn search_tracks(conn: &Connection, query: &str) -> Result<Vec<Track>, AppError> {

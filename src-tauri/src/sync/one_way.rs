@@ -124,7 +124,7 @@ fn remove_file_safe(path: &Path) -> Result<(), AppError> {
     Ok(())
 }
 
-fn remove_empty_parents(dir: &Path) -> Result<(), std::io::Error> {
+pub fn remove_empty_parents(dir: &Path) -> Result<(), std::io::Error> {
     if dir.is_dir() {
         if std::fs::read_dir(dir)?.next().is_none() {
             std::fs::remove_dir(dir)?;

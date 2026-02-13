@@ -1863,6 +1863,7 @@ dependencies = [
  "chrono",
  "glob",
  "lofty",
+ "plist",
  "rusqlite",
  "serde",
  "serde_json",

@@ -64,6 +64,35 @@ pub fn run_migrations(conn: &Connection) -> Result<(), AppError> {
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS devices (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            volume_uuid TEXT NOT NULL UNIQUE,
+            volume_name TEXT NOT NULL,
+            mount_path TEXT,
+            capacity_bytes INTEGER,
+            music_folder TEXT NOT NULL DEFAULT '',
+            created_at INTEGER NOT NULL,
+            last_synced_at INTEGER
+        );
+
+        CREATE TABLE IF NOT EXISTS device_artist_selections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id TEXT NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+            artist_name TEXT NOT NULL,
+            UNIQUE(device_id, artist_name)
+        );
+        CREATE INDEX IF NOT EXISTS idx_device_artist_device ON device_artist_selections(device_id);
+
+        CREATE TABLE IF NOT EXISTS device_file_cache (
+            device_id TEXT NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+            relative_path TEXT NOT NULL,
+            hash TEXT NOT NULL,
+            file_size INTEGER NOT NULL,
+            modified_at INTEGER NOT NULL,
+            PRIMARY KEY (device_id, relative_path)
+        );
         ",
     )?;
 

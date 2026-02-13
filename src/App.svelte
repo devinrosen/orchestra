@@ -4,10 +4,12 @@
   import Library from "./pages/Library.svelte";
   import SyncProfiles from "./pages/SyncProfiles.svelte";
   import SyncPreview from "./pages/SyncPreview.svelte";
+  import DeviceSync from "./pages/DeviceSync.svelte";
   import Settings from "./pages/Settings.svelte";
+  import GlobalStatusBar from "./lib/components/GlobalStatusBar.svelte";
   import { libraryStore } from "./lib/stores/library.svelte";
 
-  type Page = "library" | "profiles" | "sync-preview" | "settings";
+  type Page = "library" | "profiles" | "sync-preview" | "devices" | "settings";
 
   let currentPage = $state<Page>("library");
   let pageData = $state<Record<string, unknown>>({});
@@ -22,6 +24,7 @@
   const navItems: { page: Page; label: string }[] = [
     { page: "library", label: "Library" },
     { page: "profiles", label: "Sync Profiles" },
+    { page: "devices", label: "Devices" },
     { page: "settings", label: "Settings" },
   ];
 </script>
@@ -40,7 +43,9 @@
     {/each}
   </nav>
 
-  <main class="content">
+  <div class="main-column">
+    <GlobalStatusBar onNavigate={navigate} />
+    <main class="content">
     {#if currentPage === "library"}
       <Library />
     {:else if currentPage === "profiles"}
@@ -50,10 +55,13 @@
         profileId={pageData.profileId as string}
         onNavigate={navigate}
       />
+    {:else if currentPage === "devices"}
+      <DeviceSync />
     {:else if currentPage === "settings"}
       <Settings />
     {/if}
-  </main>
+    </main>
+  </div>
 </div>
 
 <style>
@@ -101,6 +109,13 @@
     background-color: var(--bg-tertiary);
     color: var(--text-primary);
     font-weight: 500;
+  }
+
+  .main-column {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
   }
 
   .content {

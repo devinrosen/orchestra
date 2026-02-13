@@ -23,6 +23,12 @@ pub enum AppError {
     #[error("Profile not found: {0}")]
     ProfileNotFound(String),
 
+    #[error("Device not found: {0}")]
+    DeviceNotFound(String),
+
+    #[error("Device disconnected: {0}")]
+    DeviceDisconnected(String),
+
     #[error("Path not accessible: {0}")]
     PathNotAccessible(String),
 
