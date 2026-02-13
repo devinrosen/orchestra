@@ -1,8 +1,29 @@
 <script lang="ts">
   import { deviceStore } from "../stores/device.svelte";
   import { syncStore } from "../stores/sync.svelte";
+  import { libraryStore } from "../stores/library.svelte";
 
   let { onNavigate }: { onNavigate: (page: string) => void } = $props();
+
+  let scanActive = $derived(libraryStore.scanning);
+
+  let scanLabel = $derived.by(() => {
+    if (!scanActive) return "";
+    const p = libraryStore.scanProgress;
+    if (p.filesProcessed === 0 && p.filesFound === 0) return "Scanning library...";
+    return `Scanning: ${p.filesProcessed} processed — ${p.currentFile}`;
+  });
+
+  let scanProgress = $derived.by(() => {
+    const p = libraryStore.scanProgress;
+    if (p.dirsTotal > 0 && p.dirsCompleted > 0) {
+      return (p.dirsCompleted / p.dirsTotal) * 100;
+    }
+    if (p.filesFound > 0 && p.filesProcessed > 0) {
+      return (p.filesProcessed / p.filesFound) * 100;
+    }
+    return -1; // indeterminate
+  });
 
   let deviceActive = $derived(
     deviceStore.syncPhase === "computing_diff" ||
@@ -14,7 +35,7 @@
     syncStore.phase === "syncing",
   );
 
-  let visible = $derived(deviceActive || profileActive);
+  let visible = $derived(scanActive || deviceActive || profileActive);
 
   let deviceLabel = $derived.by(() => {
     if (!deviceActive) return "";
@@ -75,6 +96,18 @@
 
 {#if visible}
   <div class="status-bar">
+    {#if scanActive}
+      <button class="status-item" onclick={() => onNavigate("library")}>
+        <span class="status-label">{scanLabel}</span>
+        <div class="status-track">
+          {#if scanProgress >= 0}
+            <div class="status-fill" style="width: {scanProgress}%"></div>
+          {:else}
+            <div class="status-fill indeterminate"></div>
+          {/if}
+        </div>
+      </button>
+    {/if}
     {#if deviceActive}
       <button class="status-item" onclick={() => onNavigate("devices")}>
         <span class="status-label">{deviceLabel}</span>

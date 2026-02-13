@@ -26,6 +26,9 @@ class LibraryStore {
             dirsTotal: event.dirs_total,
             dirsCompleted: event.dirs_completed,
           };
+        } else if (event.type === "scan_tree_updated") {
+          // Phase 1 done — reload tree immediately so new/removed albums appear
+          this.loadTree(path);
         }
       });
       await this.loadTree(path);

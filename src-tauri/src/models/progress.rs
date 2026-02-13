@@ -13,6 +13,12 @@ pub enum ProgressEvent {
         dirs_total: usize,
         dirs_completed: usize,
     },
+    #[serde(rename = "scan_tree_updated")]
+    ScanTreeUpdated {
+        new_dirs: usize,
+        removed_dirs: usize,
+        new_tracks: usize,
+    },
     #[serde(rename = "scan_complete")]
     ScanComplete {
         total_files: usize,

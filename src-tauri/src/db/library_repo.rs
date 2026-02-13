@@ -69,6 +69,44 @@ pub fn remove_tracks_not_in(
     Ok(deleted)
 }
 
+/// Returns the set of distinct parent directories (from relative_path) for a library root.
+pub fn get_known_directories(
+    conn: &Connection,
+    library_root: &str,
+) -> Result<std::collections::HashSet<String>, AppError> {
+    let mut stmt = conn.prepare(
+        "SELECT relative_path FROM tracks WHERE library_root = ?1",
+    )?;
+    let paths: Vec<String> = stmt
+        .query_map(params![library_root], |row| row.get(0))?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let mut dirs = std::collections::HashSet::new();
+    for path in paths {
+        if let Some(parent) = std::path::Path::new(&path).parent() {
+            let dir = parent.to_string_lossy().to_string();
+            if !dir.is_empty() {
+                dirs.insert(dir);
+            }
+        }
+    }
+    Ok(dirs)
+}
+
+/// Removes all tracks whose relative_path starts with the given directory prefix.
+pub fn remove_tracks_by_directory(
+    conn: &Connection,
+    library_root: &str,
+    dir_prefix: &str,
+) -> Result<usize, AppError> {
+    let pattern = format!("{}/%", dir_prefix);
+    let deleted = conn.execute(
+        "DELETE FROM tracks WHERE library_root = ?1 AND relative_path LIKE ?2",
+        params![library_root, pattern],
+    )?;
+    Ok(deleted)
+}
+
 /// Returns a map of file_path -> (file_size, modified_at) for all tracks in a library root.
 /// Used by incremental scan to skip unchanged files.
 pub fn get_track_fingerprints(

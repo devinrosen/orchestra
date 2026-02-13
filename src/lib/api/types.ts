@@ -174,6 +174,7 @@ export interface ArtistSummary {
 export type ProgressEvent =
   | { type: "scan_started"; path: string }
   | { type: "scan_progress"; files_found: number; files_processed: number; current_file: string; dirs_total: number; dirs_completed: number }
+  | { type: "scan_tree_updated"; new_dirs: number; removed_dirs: number; new_tracks: number }
   | { type: "scan_complete"; total_files: number; duration_ms: number }
   | { type: "device_scan_progress"; files_found: number; current_file: string }
   | { type: "diff_progress"; files_compared: number; total_files: number; current_file: string }
