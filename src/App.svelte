@@ -7,7 +7,9 @@
   import DeviceSync from "./pages/DeviceSync.svelte";
   import Settings from "./pages/Settings.svelte";
   import GlobalStatusBar from "./lib/components/GlobalStatusBar.svelte";
+  import NowPlayingBar from "./lib/components/NowPlayingBar.svelte";
   import { libraryStore } from "./lib/stores/library.svelte";
+  import { playerStore } from "./lib/stores/player.svelte";
 
   type Page = "library" | "profiles" | "sync-preview" | "devices" | "settings";
 
@@ -61,6 +63,9 @@
       <Settings />
     {/if}
     </main>
+    {#if playerStore.currentTrack}
+      <NowPlayingBar />
+    {/if}
   </div>
 </div>
 

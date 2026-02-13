@@ -1,14 +1,19 @@
 <script lang="ts">
   import type { ArtistNode, AlbumNode, Track } from "../api/types";
+  import { playerStore } from "../stores/player.svelte";
 
   let {
     artists = [],
     onEditTrack,
     onEditAlbum,
+    onPlayTrack,
+    onPlayAlbum,
   }: {
     artists: ArtistNode[];
     onEditTrack?: (track: Track) => void;
     onEditAlbum?: (tracks: Track[], albumName: string, artistName: string) => void;
+    onPlayTrack?: (track: Track, albumTracks: Track[]) => void;
+    onPlayAlbum?: (tracks: Track[]) => void;
   } = $props();
 
   let expandedArtists = $state<Set<string>>(new Set());
@@ -63,9 +68,16 @@
                   {#if album.year}<span class="year">({album.year})</span>{/if}
                   <span class="count">{album.tracks.length} track{album.tracks.length !== 1 ? "s" : ""}</span>
                 </button>
+                {#if onPlayAlbum}
+                  <button
+                    class="action-btn play-album-btn"
+                    onclick={(e) => { e.stopPropagation(); onPlayAlbum(album.tracks); }}
+                    title="Play album"
+                  >&#9654;</button>
+                {/if}
                 {#if onEditAlbum}
                   <button
-                    class="edit-btn"
+                    class="action-btn edit-btn"
                     onclick={(e) => { e.stopPropagation(); onEditAlbum(album.tracks, album.name, artist.name); }}
                     title="Edit album metadata"
                   >&#9998;</button>
@@ -75,17 +87,27 @@
               {#if expandedAlbums.has(albumKey)}
                 <div class="children">
                   {#each album.tracks as track}
-                    <button
-                      class="track-node"
-                      onclick={() => onEditTrack?.(track)}
-                      title="Edit track metadata"
-                    >
-                      <span class="track-num">{track.track_number ?? "-"}</span>
-                      <span class="track-title">{track.title ?? track.relative_path}</span>
-                      <span class="track-duration">{formatDuration(track.duration_secs)}</span>
-                      <span class="track-format">{track.format.toUpperCase()}</span>
-                      <span class="track-size">{formatSize(track.file_size)}</span>
-                    </button>
+                    {@const isPlaying = playerStore.currentTrack?.file_path === track.file_path}
+                    <div class="track-row" class:now-playing={isPlaying}>
+                      {#if onPlayTrack}
+                        <button
+                          class="track-play-btn"
+                          onclick={(e) => { e.stopPropagation(); onPlayTrack(track, album.tracks); }}
+                          title="Play track"
+                        >&#9654;</button>
+                      {/if}
+                      <button
+                        class="track-node"
+                        onclick={() => onEditTrack?.(track)}
+                        title="Edit track metadata"
+                      >
+                        <span class="track-num">{track.track_number ?? "-"}</span>
+                        <span class="track-title">{track.title ?? track.relative_path}</span>
+                        <span class="track-duration">{formatDuration(track.duration_secs)}</span>
+                        <span class="track-format">{track.format.toUpperCase()}</span>
+                        <span class="track-size">{formatSize(track.file_size)}</span>
+                      </button>
+                    </div>
                   {/each}
                 </div>
               {/if}
@@ -164,7 +186,7 @@
     flex: 1;
   }
 
-  .edit-btn {
+  .action-btn {
     background: none;
     border: none;
     color: var(--text-secondary);
@@ -175,13 +197,51 @@
     transition: opacity 0.15s;
   }
 
-  .album-header:hover .edit-btn {
+  .album-header:hover .action-btn {
     opacity: 1;
   }
 
-  .edit-btn:hover {
+  .action-btn:hover {
     color: var(--accent);
     background: var(--bg-tertiary);
+  }
+
+  .play-album-btn {
+    font-size: 12px;
+  }
+
+  .track-row {
+    display: flex;
+    align-items: center;
+    border-radius: var(--radius);
+  }
+
+  .track-row.now-playing {
+    background-color: rgba(233, 69, 96, 0.1);
+  }
+
+  .track-row.now-playing .track-title {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .track-play-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 10px;
+    padding: 4px 4px 4px 8px;
+    opacity: 0;
+    transition: opacity 0.15s;
+    flex-shrink: 0;
+  }
+
+  .track-row:hover .track-play-btn {
+    opacity: 1;
+  }
+
+  .track-play-btn:hover {
+    color: var(--accent);
   }
 
   .track-node {

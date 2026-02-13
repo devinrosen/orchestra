@@ -6,6 +6,7 @@
   import AlbumEditor from "../lib/components/AlbumEditor.svelte";
   import ProgressBar from "../lib/components/ProgressBar.svelte";
   import { libraryStore } from "../lib/stores/library.svelte";
+  import { playerStore } from "../lib/stores/player.svelte";
 
   let editingTrack = $state<Track | null>(null);
   let editingAlbum = $state<{ tracks: Track[]; albumName: string; artistName: string } | null>(null);
@@ -30,6 +31,14 @@
 
   function handleEditAlbum(tracks: Track[], albumName: string, artistName: string) {
     editingAlbum = { tracks, albumName, artistName };
+  }
+
+  function handlePlayTrack(track: Track, albumTracks: Track[]) {
+    playerStore.playTrack(track, albumTracks);
+  }
+
+  function handlePlayAlbum(tracks: Track[]) {
+    playerStore.playAlbum(tracks);
   }
 
   async function handleTrackSaved() {
@@ -86,6 +95,7 @@
       <div class="results-list">
         {#each libraryStore.searchResults as track}
           <div class="result-item">
+            <button class="result-play-btn" onclick={() => handlePlayTrack(track, [track])} title="Play">&#9654;</button>
             <span class="result-title">{track.title ?? track.relative_path}</span>
             <span class="result-artist">{track.artist ?? "Unknown"}</span>
             <span class="result-album">{track.album ?? "Unknown"}</span>
@@ -103,6 +113,8 @@
       artists={libraryStore.tree.artists}
       onEditTrack={handleEditTrack}
       onEditAlbum={handleEditAlbum}
+      onPlayTrack={handlePlayTrack}
+      onPlayAlbum={handlePlayAlbum}
     />
   {:else if !libraryStore.scanning}
     <div class="empty-state">
@@ -222,6 +234,25 @@
 
   .result-item:hover {
     background: var(--bg-secondary);
+  }
+
+  .result-play-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 10px;
+    padding: 2px 6px;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .result-item:hover .result-play-btn {
+    opacity: 1;
+  }
+
+  .result-play-btn:hover {
+    color: var(--accent);
   }
 
   .result-title { flex: 2; }
