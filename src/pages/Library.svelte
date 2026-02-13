@@ -42,12 +42,12 @@
   {#if libraryStore.scanning}
     <div class="scan-progress">
       <ProgressBar
-        value={libraryStore.scanProgress.filesProcessed}
-        max={libraryStore.scanProgress.filesFound}
+        value={libraryStore.scanProgress.dirsCompleted}
+        max={libraryStore.scanProgress.dirsTotal}
         label="Scanning: {libraryStore.scanProgress.currentFile}"
       />
       <p class="scan-count">
-        {libraryStore.scanProgress.filesProcessed} / {libraryStore.scanProgress.filesFound} files
+        {libraryStore.scanProgress.filesProcessed} files processed
       </p>
     </div>
   {/if}

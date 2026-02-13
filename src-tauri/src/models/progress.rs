@@ -10,6 +10,8 @@ pub enum ProgressEvent {
         files_found: usize,
         files_processed: usize,
         current_file: String,
+        dirs_total: usize,
+        dirs_completed: usize,
     },
     #[serde(rename = "scan_complete")]
     ScanComplete {

@@ -112,7 +112,7 @@ export interface ConflictResolution {
 
 export type ProgressEvent =
   | { type: "scan_started"; path: string }
-  | { type: "scan_progress"; files_found: number; files_processed: number; current_file: string }
+  | { type: "scan_progress"; files_found: number; files_processed: number; current_file: string; dirs_total: number; dirs_completed: number }
   | { type: "scan_complete"; total_files: number; duration_ms: number }
   | { type: "diff_progress"; files_compared: number; total_files: number }
   | { type: "diff_complete"; total_entries: number }

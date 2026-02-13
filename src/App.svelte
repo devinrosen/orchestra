@@ -1,14 +1,18 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import "./app.css";
   import Library from "./pages/Library.svelte";
   import SyncProfiles from "./pages/SyncProfiles.svelte";
   import SyncPreview from "./pages/SyncPreview.svelte";
   import Settings from "./pages/Settings.svelte";
+  import { libraryStore } from "./lib/stores/library.svelte";
 
   type Page = "library" | "profiles" | "sync-preview" | "settings";
 
   let currentPage = $state<Page>("library");
   let pageData = $state<Record<string, unknown>>({});
+
+  onMount(() => libraryStore.init());
 
   function navigate(page: string, data?: Record<string, unknown>) {
     currentPage = page as Page;

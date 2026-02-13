@@ -23,18 +23,44 @@ pub async fn scan_directory(
     let _ = on_progress.send(ProgressEvent::ScanStarted { path: path.clone() });
 
     let start = std::time::Instant::now();
-    let walk_result = walker::walk_directory(root, &[]);
-    let total = walk_result.audio_files.len();
+
+    // Quick count of immediate subdirectories for progress tracking
+    let subdirs: Vec<String> = std::fs::read_dir(root)
+        .into_iter()
+        .flatten()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().map(|ft| ft.is_dir()).unwrap_or(false))
+        .filter_map(|e| e.file_name().into_string().ok())
+        .collect();
+    let dirs_total = subdirs.len().max(1);
 
     let mut tracks = Vec::new();
-    for (i, file_path) in walk_result.audio_files.iter().enumerate() {
+    let mut files_found: usize = 0;
+    let mut current_dir = String::new();
+    let mut dirs_completed: usize = 0;
+    for file_path in walker::walk_directory_iter(root, &[]) {
+        files_found += 1;
+
+        // Track top-level subdirectory transitions
+        let top_dir = file_path.strip_prefix(root)
+            .ok()
+            .and_then(|rel| rel.components().next())
+            .map(|c| c.as_os_str().to_string_lossy().to_string())
+            .unwrap_or_default();
+        if top_dir != current_dir && !current_dir.is_empty() {
+            dirs_completed += 1;
+        }
+        current_dir = top_dir;
+
         let _ = on_progress.send(ProgressEvent::ScanProgress {
-            files_found: total,
-            files_processed: i + 1,
+            files_found,
+            files_processed: tracks.len(),
             current_file: file_path.file_name().unwrap_or_default().to_string_lossy().to_string(),
+            dirs_total,
+            dirs_completed,
         });
 
-        match metadata::extract_metadata(file_path, root) {
+        match metadata::extract_metadata(&file_path, root) {
             Ok(track) => tracks.push(track),
             Err(e) => {
                 eprintln!("Failed to read metadata for {}: {}", file_path.display(), e);
