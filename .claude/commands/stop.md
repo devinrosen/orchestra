@@ -1,0 +1,1 @@
+Stop the running Tauri dev app. Find and kill any running `cargo-tauri` / `tauri dev` / Vite dev server processes related to this project.

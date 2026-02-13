@@ -1,0 +1,1 @@
+Run the app in development mode using `npm run tauri dev` in the background. This starts both the Vite frontend dev server and the Tauri Rust backend with hot module reloading.
