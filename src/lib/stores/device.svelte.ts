@@ -38,6 +38,7 @@ class DeviceStore {
     currentFile: "",
   });
   syncErrors = $state<{ file: string; error: string }[]>([]);
+  startedAt = $state<number | null>(null);
   error = $state<string | null>(null);
   detecting = $state(false);
   loadingArtists = $state(false);
@@ -127,6 +128,7 @@ class DeviceStore {
   async computeDiff(deviceId: string) {
     if (this.syncPhase === "computing_diff" || this.syncPhase === "syncing") return;
     this.syncPhase = "computing_diff";
+    this.startedAt = Date.now();
     this.error = null;
     this.diffResult = null;
     this.syncErrors = [];
@@ -173,6 +175,7 @@ class DeviceStore {
     if (!this.diffResult) return;
     if (this.syncPhase === "syncing") return;
     this.syncPhase = "syncing";
+    this.startedAt = Date.now();
     this.error = null;
     this.syncErrors = [];
     this.syncProgress = {
@@ -238,6 +241,7 @@ class DeviceStore {
     this.syncPhase = "idle";
     this.diffResult = null;
     this.syncErrors = [];
+    this.startedAt = null;
     this.error = null;
     this.diffProgress = {
       phase: "scanning",

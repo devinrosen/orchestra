@@ -17,6 +17,7 @@ class SyncStore {
   });
   error = $state<string | null>(null);
   syncErrors = $state<{ file: string; error: string }[]>([]);
+  syncStartedAt = $state<number | null>(null);
 
   async computeDiff(profileId: string) {
     this.phase = "computing_diff";
@@ -51,6 +52,7 @@ class SyncStore {
     if (!this.diffResult) return;
 
     this.phase = "syncing";
+    this.syncStartedAt = Date.now();
     this.error = null;
     this.syncErrors = [];
     this.progress = {
@@ -115,6 +117,7 @@ class SyncStore {
     this.resolutions = [];
     this.error = null;
     this.syncErrors = [];
+    this.syncStartedAt = null;
     this.progress = {
       filesCompleted: 0,
       totalFiles: 0,

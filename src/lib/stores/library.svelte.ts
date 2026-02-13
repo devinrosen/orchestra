@@ -6,6 +6,7 @@ class LibraryStore {
   tree = $state<LibraryTree | null>(null);
   libraryRoot = $state<string>("");
   scanning = $state(false);
+  scanStartedAt = $state<number | null>(null);
   scanProgress = $state({ filesFound: 0, filesProcessed: 0, currentFile: "", dirsTotal: 0, dirsCompleted: 0 });
   searchResults = $state<Track[]>([]);
   searchQuery = $state("");
@@ -37,6 +38,7 @@ class LibraryStore {
 
   async scan(path: string) {
     this.scanning = true;
+    this.scanStartedAt = Date.now();
     this.error = null;
     this.libraryRoot = path;
     this.scanProgress = { filesFound: 0, filesProcessed: 0, currentFile: "", dirsTotal: 0, dirsCompleted: 0 };
@@ -62,6 +64,7 @@ class LibraryStore {
       this.error = String(e);
     } finally {
       this.scanning = false;
+      this.scanStartedAt = null;
     }
   }
 
