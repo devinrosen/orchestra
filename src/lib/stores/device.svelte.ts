@@ -59,6 +59,8 @@ class DeviceStore {
     this.error = null;
     try {
       this.detectedVolumes = await commands.detectVolumes();
+      // Refresh device list — detection may have updated mount paths
+      await this.loadDevices();
     } catch (e) {
       this.error = String(e);
     } finally {

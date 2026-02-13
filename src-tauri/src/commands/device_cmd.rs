@@ -17,11 +17,15 @@ pub async fn detect_volumes(
 ) -> Result<Vec<DetectedVolume>, AppError> {
     let mut volumes = detect::detect_usb_volumes()?;
 
-    // Cross-reference with saved devices
+    // Cross-reference with saved devices and update mount paths
     let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
     for vol in &mut volumes {
-        if let Ok(Some(_)) = device_repo::get_device_by_uuid(&conn, &vol.volume_uuid) {
+        if let Ok(Some(device)) = device_repo::get_device_by_uuid(&conn, &vol.volume_uuid) {
             vol.already_registered = true;
+            // Update mount_path if the device reconnected at a different path
+            if device.mount_path.as_deref() != Some(&vol.mount_path) {
+                let _ = device_repo::update_mount_path(&conn, &device.id, &vol.mount_path);
+            }
         }
     }
 
