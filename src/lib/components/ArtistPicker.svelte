@@ -14,9 +14,12 @@
   } = $props();
 
   let searchQuery = $state("");
-  // We intentionally capture just the initial value to create a local editing copy
-  let initialSelected = selectedArtists;
-  let selected = $state<Set<string>>(new Set(initialSelected));
+  let selected = $state<Set<string>>(new Set(selectedArtists));
+
+  // Reset local editing copy when the prop changes (e.g. navigating back and re-opening)
+  $effect(() => {
+    selected = new Set(selectedArtists);
+  });
 
   let filteredArtists = $derived(
     searchQuery.trim().length === 0
@@ -123,7 +126,8 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
   }
 
   .picker-header {
