@@ -1,7 +1,13 @@
 use rusqlite::{params, Connection};
+use unicode_normalization::UnicodeNormalization;
 
 use crate::error::AppError;
 use crate::models::device::Device;
+
+/// Normalize a path key for cache lookups (must match device::sync::normalize_path)
+fn normalize_cache_key(p: &str) -> String {
+    p.nfc().collect::<String>().to_lowercase()
+}
 
 pub fn save_device(conn: &Connection, device: &Device) -> Result<(), AppError> {
     conn.execute(
@@ -150,7 +156,10 @@ pub fn get_file_cache(
             })
         })?
         .filter_map(|r| r.ok())
-        .map(|c| (c.relative_path.clone(), c))
+        .map(|c| {
+            let key = normalize_cache_key(&c.relative_path);
+            (key, c)
+        })
         .collect();
     Ok(entries)
 }

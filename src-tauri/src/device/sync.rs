@@ -3,6 +3,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::ipc::Channel;
+use unicode_normalization::UnicodeNormalization;
 
 use crate::db::device_repo::CachedFileHash;
 use crate::error::AppError;
@@ -15,6 +16,15 @@ use crate::sync::one_way::{copy_file_safe, remove_empty_parents};
 struct FileInfo {
     size: u64,
     modified: i64,
+    /// The original (un-normalized) relative path as seen on the filesystem
+    original_path: String,
+}
+
+/// Normalize a relative path for comparison: NFC Unicode normalization + lowercase.
+/// FAT32/exFAT are case-insensitive and may use different Unicode normalization
+/// than APFS (which uses NFD). This ensures matching across filesystems.
+fn normalize_path(p: &str) -> String {
+    p.nfc().collect::<String>().to_lowercase()
 }
 
 fn is_hidden(name: &std::ffi::OsStr) -> bool {
@@ -41,7 +51,7 @@ fn collect_device_files(
             Ok(e) => e,
             Err(_) => continue, // skip permission errors and other walk failures
         };
-        if !entry.file_type().is_file() || !is_audio_file(entry.path()) {
+        if !entry.file_type().is_file() || !is_audio_file(entry.path()) || is_hidden(entry.file_name()) {
             continue;
         }
         let rel = entry
@@ -60,7 +70,8 @@ fn collect_device_files(
             .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
             .map(|d| d.as_secs() as i64)
             .unwrap_or(0);
-        files.insert(rel.clone(), FileInfo { size: meta.len(), modified });
+        let norm_key = normalize_path(&rel);
+        files.insert(norm_key, FileInfo { size: meta.len(), modified, original_path: rel.clone() });
 
         let _ = channel.send(ProgressEvent::DeviceScanProgress {
             files_found: files.len(),
@@ -78,18 +89,18 @@ pub fn compute_device_diff(
     channel: &Channel<ProgressEvent>,
     hash_cache: &HashMap<String, CachedFileHash>,
 ) -> Result<(DiffResult, Vec<CachedFileHash>), AppError> {
-    // Build map of library tracks by relative_path
-    let library_map: HashMap<&str, &Track> = library_tracks
+    // Build map of library tracks by normalized relative_path
+    let library_map: HashMap<String, &Track> = library_tracks
         .iter()
-        .map(|t| (t.relative_path.as_str(), t))
+        .map(|t| (normalize_path(&t.relative_path), t))
         .collect();
 
-    // Walk the device to find existing files
+    // Walk the device to find existing files (already keyed by normalized path)
     let device_files = collect_device_files(device_root, channel)?;
 
     let all_keys: HashSet<String> = library_map
         .keys()
-        .map(|k| k.to_string())
+        .cloned()
         .chain(device_files.keys().cloned())
         .collect();
 
@@ -103,16 +114,26 @@ pub fn compute_device_diff(
     let mut files_compared = 0usize;
     let mut new_cache: Vec<CachedFileHash> = Vec::new();
 
-    for rel in &all_keys {
+    for norm_key in &all_keys {
         files_compared += 1;
+
+        let in_library = library_map.get(norm_key);
+        let in_device = device_files.get(norm_key);
+
+        // Use the library relative_path (canonical) for diff entries; fall back to device path
+        let rel = in_library
+            .map(|t| t.relative_path.clone())
+            .unwrap_or_else(|| {
+                in_device
+                    .map(|d| d.original_path.clone())
+                    .unwrap_or_else(|| norm_key.clone())
+            });
+
         let _ = channel.send(ProgressEvent::DiffProgress {
             files_compared,
             total_files: total_to_compare,
             current_file: rel.clone(),
         });
-
-        let in_library = library_map.get(rel.as_str());
-        let in_device = device_files.get(rel);
 
         match (in_library, in_device) {
             (Some(track), None) => {
@@ -152,7 +173,7 @@ pub fn compute_device_diff(
                 if track.file_size == dev.size && track.modified_at == dev.modified {
                     total_unchanged += 1;
                     // Carry forward any cached hash
-                    let cached_hash = hash_cache.get(rel).map(|c| c.hash.clone());
+                    let cached_hash = hash_cache.get(norm_key).map(|c| c.hash.clone());
                     new_cache.push(CachedFileHash {
                         relative_path: rel.clone(),
                         hash: cached_hash.unwrap_or_default(),
@@ -177,14 +198,15 @@ pub fn compute_device_diff(
                         None => hasher::hash_file(Path::new(&track.file_path))?,
                     };
                     // Check cache: if device file size+mtime match cached entry, reuse hash
-                    let tgt_hash = if let Some(cached) = hash_cache.get(rel) {
+                    let dev_path = &dev.original_path;
+                    let tgt_hash = if let Some(cached) = hash_cache.get(norm_key) {
                         if cached.file_size == dev.size && cached.modified_at == dev.modified {
                             cached.hash.clone()
                         } else {
-                            hasher::hash_file(&device_root.join(rel))?
+                            hasher::hash_file(&device_root.join(dev_path))?
                         }
                     } else {
-                        hasher::hash_file(&device_root.join(rel))?
+                        hasher::hash_file(&device_root.join(dev_path))?
                     };
                     // Cache the device hash we just resolved
                     new_cache.push(CachedFileHash {
