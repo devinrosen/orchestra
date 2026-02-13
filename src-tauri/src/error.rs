@@ -1,0 +1,43 @@
+use serde::Serialize;
+
+#[derive(Debug, thiserror::Error)]
+pub enum AppError {
+    #[error("Database error: {0}")]
+    Database(#[from] rusqlite::Error),
+
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("Walk error: {0}")]
+    Walk(#[from] walkdir::Error),
+
+    #[error("Metadata error: {0}")]
+    Metadata(String),
+
+    #[error("Scan cancelled")]
+    ScanCancelled,
+
+    #[error("Sync cancelled")]
+    SyncCancelled,
+
+    #[error("Profile not found: {0}")]
+    ProfileNotFound(String),
+
+    #[error("Path not accessible: {0}")]
+    PathNotAccessible(String),
+
+    #[error("Disk full")]
+    DiskFull,
+
+    #[error("{0}")]
+    General(String),
+}
+
+impl Serialize for AppError {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.to_string())
+    }
+}

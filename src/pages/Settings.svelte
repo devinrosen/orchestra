@@ -1,0 +1,126 @@
+<script lang="ts">
+  import * as commands from "../lib/api/commands";
+
+  let settings = $state<Record<string, string>>({});
+  let loading = $state(true);
+  let saved = $state(false);
+
+  $effect(() => {
+    loadSettings();
+  });
+
+  async function loadSettings() {
+    loading = true;
+    try {
+      const all = await commands.getAllSettings();
+      settings = Object.fromEntries(all);
+    } catch {
+      // defaults
+    } finally {
+      loading = false;
+    }
+  }
+
+  async function saveSetting(key: string, value: string) {
+    settings[key] = value;
+    await commands.setSetting(key, value);
+    saved = true;
+    setTimeout(() => (saved = false), 2000);
+  }
+</script>
+
+<div class="settings-page">
+  <h2>Settings</h2>
+
+  {#if loading}
+    <p>Loading settings...</p>
+  {:else}
+    <div class="settings-group">
+      <h3>General</h3>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <label>Default Sync Mode</label>
+          <p class="setting-desc">Default sync mode for new profiles</p>
+        </div>
+        <select
+          value={settings["default_sync_mode"] ?? "one_way"}
+          onchange={(e) => saveSetting("default_sync_mode", (e.target as HTMLSelectElement).value)}
+        >
+          <option value="one_way">One-Way</option>
+          <option value="two_way">Two-Way</option>
+        </select>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <label>Hash Verification</label>
+          <p class="setting-desc">Use content hashing to detect changes (slower but more accurate)</p>
+        </div>
+        <select
+          value={settings["hash_mode"] ?? "auto"}
+          onchange={(e) => saveSetting("hash_mode", (e.target as HTMLSelectElement).value)}
+        >
+          <option value="auto">Auto (size + mtime first)</option>
+          <option value="always">Always hash</option>
+          <option value="never">Never hash (fastest)</option>
+        </select>
+      </div>
+    </div>
+
+    {#if saved}
+      <div class="save-indicator">Settings saved</div>
+    {/if}
+  {/if}
+</div>
+
+<style>
+  .settings-page {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 600px;
+  }
+
+  .settings-page h2 {
+    font-size: 20px;
+    font-weight: 600;
+  }
+
+  .settings-group {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .settings-group h3 {
+    font-size: 14px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .setting-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+  }
+
+  .setting-info label {
+    font-weight: 500;
+  }
+
+  .setting-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-top: 2px;
+  }
+
+  .save-indicator {
+    color: var(--success);
+    font-size: 13px;
+  }
+</style>
