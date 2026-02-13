@@ -69,3 +69,7 @@ TypeScript types in `src/lib/api/types.ts` mirror Rust structs exactly.
 - All timestamps are Unix epoch seconds (i64)
 - `AppError` serializes to string for frontend consumption
 - `tauri::Manager` trait must be imported when using `app.path()` or `app.manage()`
+
+## Memory
+
+See `.claude/memory/MEMORY.md` for project context, architecture notes, and implementation patterns.
