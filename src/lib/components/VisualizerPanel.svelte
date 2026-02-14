@@ -152,6 +152,7 @@
     height: 180px;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
   }
 
   .visualizer-header {
@@ -207,5 +208,6 @@
     width: 100%;
     flex: 1;
     display: block;
+    min-height: 0;
   }
 </style>

@@ -26,7 +26,7 @@ Statuses: `[ ]` not started · `[designed]` plan exists · `[implemented]` code 
 - [done] **Play music by song or album** — Add audio playback support so users can play individual tracks or full albums directly from the library view.
 - [done] **Playlist support** — Create, manage, and reorder playlists within the app, with export to M3U/PLS formats for use in other players.
 - [done] **Play queue viewer** — Add a button in the player bar to open a panel showing the current play queue (upcoming songs, current track highlighted). Works when playing an album or a playlist. Users can see what's coming next, skip ahead by clicking a track, and reorder or remove items from the queue.
-- [implemented] **Playback visualization** — Real-time audio visualizations that react to the currently playing track. Include multiple modes: waveform, frequency spectrum (bar graph), and a circular/radial visualizer. Rendered via Canvas or WebGL in a toggleable panel above the player bar. Should use the Web Audio API's AnalyserNode to tap into the audio stream without affecting playback.
+- [done] **Playback visualization** — Real-time audio visualizations that react to the currently playing track. Include multiple modes: waveform, frequency spectrum (bar graph), and a circular/radial visualizer. Rendered via Canvas or WebGL in a toggleable panel above the player bar. Should use the Web Audio API's AnalyserNode to tap into the audio stream without affecting playback.
 
 ## Device Sync
 
