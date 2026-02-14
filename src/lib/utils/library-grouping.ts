@@ -135,3 +135,55 @@ function sortFolderNode(node: FolderNode): void {
     sortFolderNode(child);
   }
 }
+
+export function filterArtists(artists: ArtistNode[], query: string): ArtistNode[] {
+  const q = query.toLowerCase();
+  return artists.filter((artist) => artist.name.toLowerCase().includes(q));
+}
+
+export function filterAlbums(albums: AlbumEntry[], query: string): AlbumEntry[] {
+  const q = query.toLowerCase();
+  return albums.filter(
+    (album) => album.name.toLowerCase().includes(q) || album.artist.toLowerCase().includes(q),
+  );
+}
+
+export function filterGenres(genres: GenreNode[], query: string): GenreNode[] {
+  const q = query.toLowerCase();
+  return genres.filter((genre) => genre.name.toLowerCase().includes(q));
+}
+
+export function filterFolders(root: FolderNode, query: string): FolderNode | null {
+  const q = query.toLowerCase();
+  return filterFolderNode(root, q);
+}
+
+function filterFolderNode(node: FolderNode, query: string): FolderNode | null {
+  const nameMatches = node.name.toLowerCase().includes(query);
+
+  if (nameMatches) {
+    // Name matches — include with full subtree
+    return node;
+  }
+
+  // Check children recursively
+  const matchingChildren: FolderNode[] = [];
+  for (const child of node.children) {
+    const filtered = filterFolderNode(child, query);
+    if (filtered) {
+      matchingChildren.push(filtered);
+    }
+  }
+
+  if (matchingChildren.length > 0) {
+    // Structural container — include matching children but not this folder's own tracks
+    return {
+      name: node.name,
+      path: node.path,
+      children: matchingChildren,
+      tracks: [],
+    };
+  }
+
+  return null;
+}
