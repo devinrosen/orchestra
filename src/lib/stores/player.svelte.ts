@@ -95,6 +95,61 @@ class PlayerStore {
     }
   }
 
+  jumpTo(index: number) {
+    if (index < 0 || index >= this.queue.length) return;
+    this.queueIndex = index;
+    this.loadAndPlay();
+  }
+
+  removeFromQueue(index: number) {
+    if (index < 0 || index >= this.queue.length) return;
+    if (this.queue.length === 1) {
+      this.queue = [];
+      this.queueIndex = 0;
+      if (this.audio) {
+        this.audio.pause();
+        this.audio.src = "";
+      }
+      this.playing = false;
+      this.currentTime = 0;
+      this.duration = 0;
+      this.artwork = null;
+      return;
+    }
+    if (index < this.queueIndex) {
+      this.queueIndex--;
+      this.queue.splice(index, 1);
+    } else if (index === this.queueIndex) {
+      this.queue.splice(index, 1);
+      if (this.queueIndex >= this.queue.length) {
+        this.queueIndex = this.queue.length - 1;
+      }
+      this.loadAndPlay();
+    } else {
+      this.queue.splice(index, 1);
+    }
+  }
+
+  moveInQueue(fromIndex: number, toIndex: number) {
+    if (
+      fromIndex === toIndex ||
+      fromIndex < 0 ||
+      fromIndex >= this.queue.length ||
+      toIndex < 0 ||
+      toIndex >= this.queue.length
+    )
+      return;
+    const currentFilePath = this.currentTrack?.file_path;
+    const [moved] = this.queue.splice(fromIndex, 1);
+    this.queue.splice(toIndex, 0, moved);
+    if (currentFilePath) {
+      const newIndex = this.queue.findIndex(
+        (t) => t.file_path === currentFilePath,
+      );
+      if (newIndex >= 0) this.queueIndex = newIndex;
+    }
+  }
+
   next() {
     if (this.hasNext) {
       this.queueIndex++;
