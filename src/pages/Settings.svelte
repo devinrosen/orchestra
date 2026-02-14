@@ -40,10 +40,11 @@
 
       <div class="setting-row">
         <div class="setting-info">
-          <label>Default Sync Mode</label>
+          <label for="setting-sync-mode">Default Sync Mode</label>
           <p class="setting-desc">Default sync mode for new profiles</p>
         </div>
         <select
+          id="setting-sync-mode"
           value={settings["default_sync_mode"] ?? "one_way"}
           onchange={(e) => saveSetting("default_sync_mode", (e.target as HTMLSelectElement).value)}
         >
@@ -54,10 +55,11 @@
 
       <div class="setting-row">
         <div class="setting-info">
-          <label>Hash Verification</label>
+          <label for="setting-hash-mode">Hash Verification</label>
           <p class="setting-desc">Use content hashing to detect changes (slower but more accurate)</p>
         </div>
         <select
+          id="setting-hash-mode"
           value={settings["hash_mode"] ?? "auto"}
           onchange={(e) => saveSetting("hash_mode", (e.target as HTMLSelectElement).value)}
         >

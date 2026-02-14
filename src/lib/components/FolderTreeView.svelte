@@ -96,35 +96,6 @@
     padding: 8px;
   }
 
-  .tree-toggle {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    background: none;
-    border: none;
-    color: var(--text-primary);
-    padding: 6px 8px;
-    border-radius: var(--radius);
-    text-align: left;
-    font-size: 14px;
-  }
-
-  .tree-toggle:hover {
-    background-color: var(--bg-tertiary);
-  }
-
-  .chevron {
-    font-size: 10px;
-    transition: transform 0.15s;
-    color: var(--text-secondary);
-    flex-shrink: 0;
-  }
-
-  .chevron.expanded {
-    transform: rotate(90deg);
-  }
-
   .folder-icon {
     font-size: 14px;
     flex-shrink: 0;
@@ -166,15 +137,4 @@
   .folder-name {
     font-weight: 500;
   }
-
-  .count {
-    color: var(--text-secondary);
-    font-size: 12px;
-    margin-left: auto;
-  }
-
-  .children {
-    padding-left: 20px;
-  }
-
 </style>

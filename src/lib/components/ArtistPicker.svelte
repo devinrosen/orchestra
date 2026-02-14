@@ -18,7 +18,9 @@
   } = $props();
 
   let searchQuery = $state("");
+  // svelte-ignore state_referenced_locally — intentional one-time copy; $effect below resyncs
   let selectedArtistSet = $state<Set<string>>(new Set(selectedArtists));
+  // svelte-ignore state_referenced_locally
   let selectedAlbumSet = $state<Set<string>>(
     new Set(selectedAlbums.map((a) => `${a.artist_name}|||${a.album_name}`)),
   );
@@ -343,15 +345,6 @@
   .expand-placeholder {
     width: 22px;
     flex-shrink: 0;
-  }
-
-  .chevron {
-    display: inline-block;
-    transition: transform 0.15s;
-  }
-
-  .chevron.expanded {
-    transform: rotate(90deg);
   }
 
   .artist-label {

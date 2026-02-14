@@ -12,13 +12,21 @@
     onClose: () => void;
   } = $props();
 
+  // svelte-ignore state_referenced_locally — intentional one-time copy for editing
   let title = $state(track.title ?? "");
+  // svelte-ignore state_referenced_locally
   let artist = $state(track.artist ?? "");
+  // svelte-ignore state_referenced_locally
   let albumArtist = $state(track.album_artist ?? "");
+  // svelte-ignore state_referenced_locally
   let album = $state(track.album ?? "");
+  // svelte-ignore state_referenced_locally
   let trackNumber = $state(track.track_number?.toString() ?? "");
+  // svelte-ignore state_referenced_locally
   let discNumber = $state(track.disc_number?.toString() ?? "");
+  // svelte-ignore state_referenced_locally
   let year = $state(track.year?.toString() ?? "");
+  // svelte-ignore state_referenced_locally
   let genre = $state(track.genre ?? "");
 
   let artwork = $state<AlbumArt | null>(null);
@@ -58,8 +66,8 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 <div class="editor-overlay" role="presentation" onclick={onClose}>
-  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions a11y_interactive_supports_focus -->
-  <div class="editor-dialog" role="dialog" onclick={(e) => e.stopPropagation()}>
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <div class="editor-dialog" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()}>
     <div class="editor-header">
       <h3>Edit Track</h3>
       <button class="close-btn" onclick={onClose}>&times;</button>

@@ -85,7 +85,7 @@
       <ProgressBar
         value={syncStore.progress.filesCompleted}
         max={syncStore.progress.totalFiles}
-        label="{syncStore.progress.currentFile}"
+        label={syncStore.progress.currentFile}
       />
       <div class="progress-details">
         <span>{syncStore.progress.filesCompleted} / {syncStore.progress.totalFiles} files</span>

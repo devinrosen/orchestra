@@ -185,8 +185,8 @@
     {#if registeringVolume}
       <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
       <div class="register-dialog-overlay" role="presentation" onclick={() => (registeringVolume = null)}>
-        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions a11y_interactive_supports_focus -->
-        <div class="register-dialog" role="dialog" onclick={(e) => e.stopPropagation()}>
+        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+        <div class="register-dialog" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()}>
           <h3>Register Device</h3>
           <label class="field">
             <span>Device Name</span>
@@ -210,8 +210,8 @@
       {@const ejectDevice = deviceStore.devices.find((d) => d.device.id === ejectingDeviceId)}
       <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
       <div class="register-dialog-overlay" role="presentation" onclick={cancelEject}>
-        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions a11y_interactive_supports_focus -->
-        <div class="register-dialog" role="dialog" onclick={(e) => e.stopPropagation()}>
+        <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+        <div class="register-dialog" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()}>
           <h3>Eject Device</h3>
           <p>Are you sure you want to eject "{ejectDevice?.device.name}"?</p>
           <p class="hint">Make sure no sync is in progress before ejecting.</p>

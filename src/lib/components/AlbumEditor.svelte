@@ -17,10 +17,15 @@
     onClose: () => void;
   } = $props();
 
-  let album = $state(albumName);
+  // svelte-ignore state_referenced_locally — intentional one-time copy for editing
+  let album = $state(albumName as string);
+  // svelte-ignore state_referenced_locally
   let artist = $state(tracks[0]?.artist ?? "");
-  let albumArtist = $state(artistName);
+  // svelte-ignore state_referenced_locally
+  let albumArtist = $state(artistName as string);
+  // svelte-ignore state_referenced_locally
   let year = $state(tracks[0]?.year?.toString() ?? "");
+  // svelte-ignore state_referenced_locally
   let genre = $state(tracks[0]?.genre ?? "");
 
   let artwork = $state<AlbumArt | null>(null);
@@ -59,8 +64,8 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 <div class="editor-overlay" role="presentation" onclick={onClose}>
-  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions a11y_interactive_supports_focus -->
-  <div class="editor-dialog" role="dialog" onclick={(e) => e.stopPropagation()}>
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <div class="editor-dialog" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()}>
     <div class="editor-header">
       <h3>Edit Album ({tracks.length} tracks)</h3>
       <button class="close-btn" onclick={onClose}>&times;</button>

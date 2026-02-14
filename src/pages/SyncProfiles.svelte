@@ -102,16 +102,16 @@
         <input id="profile-name" type="text" bind:value={formName} placeholder="My Sync Profile" />
       </div>
       <div class="form-field">
-        <label>Source</label>
+        <label for="profile-source">Source</label>
         <div class="path-picker">
-          <input type="text" bind:value={formSource} placeholder="/path/to/source" />
+          <input id="profile-source" type="text" bind:value={formSource} placeholder="/path/to/source" />
           <button class="secondary" onclick={() => pickPath("source")}>Browse</button>
         </div>
       </div>
       <div class="form-field">
-        <label>Target</label>
+        <label for="profile-target">Target</label>
         <div class="path-picker">
-          <input type="text" bind:value={formTarget} placeholder="/path/to/target" />
+          <input id="profile-target" type="text" bind:value={formTarget} placeholder="/path/to/target" />
           <button class="secondary" onclick={() => pickPath("target")}>Browse</button>
         </div>
       </div>
