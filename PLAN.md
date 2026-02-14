@@ -1,302 +1,491 @@
-# Plan: Eject/Unmount Device Button
+# PLAN: Library Statistics
 
-## Summary
+## Overview
 
-Add an eject button to the device card so users can safely unmount a connected device directly from the app without switching to Finder or the system tray. This involves a new Rust backend command that calls macOS `diskutil eject`, a new frontend button on the `DeviceCard` component, a confirmation dialog, and appropriate state management.
+Add a "Library Statistics" dashboard page showing aggregate information about the user's music library. The dashboard displays:
+
+- **Total counts**: number of tracks, artists, albums
+- **Total library size** (formatted as GB/MB)
+- **Total duration** (formatted as hours/minutes)
+- **Format breakdown**: count and percentage per audio format (FLAC, MP3, M4A, etc.)
+- **Genre distribution**: count and percentage per genre
+- **Average bitrate** across the library (kbps)
+
+The statistics are computed via SQL queries on the existing `tracks` table. No new database tables are needed. A new `bitrate` column is added to `tracks` to store per-track bitrate (extracted from lofty during scan).
+
+The page is accessible from the sidebar navigation as "Statistics" and only shows data when a library is loaded.
+
+---
 
 ## Backend Changes
 
-### 1. New module: `src-tauri/src/device/eject.rs`
+### 1. Add `bitrate` field to Track model
 
-Create a new module that handles the platform-specific eject logic:
+**File**: `src-tauri/src/models/track.rs`
 
+Add field to `Track` struct (after `has_album_art`):
 ```rust
-use std::process::Command;
-use crate::error::AppError;
+pub bitrate: Option<u32>,  // kbps, from lofty FileProperties::overall_bitrate()
+```
 
-/// Eject a volume by its mount path using macOS `diskutil`.
-/// Uses `diskutil eject` which cleanly unmounts and powers down the drive.
-pub fn eject_volume(mount_path: &str) -> Result<(), AppError> {
-    let output = Command::new("diskutil")
-        .args(["eject", mount_path])
-        .output()
-        .map_err(|e| AppError::General(format!("Failed to run diskutil: {}", e)))?;
+### 2. Add `bitrate` column migration
 
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(AppError::General(format!("Failed to eject device: {}", stderr.trim())));
-    }
+**File**: `src-tauri/src/db/schema.rs`
 
-    Ok(())
+Add migration after the existing `has_album_art` migration (same pattern):
+```rust
+let has_bitrate: bool = conn
+    .prepare("SELECT COUNT(*) FROM pragma_table_info('tracks') WHERE name='bitrate'")?
+    .query_row([], |row| row.get::<_, i64>(0))
+    .map(|count| count > 0)?;
+
+if !has_bitrate {
+    conn.execute_batch(
+        "ALTER TABLE tracks ADD COLUMN bitrate INTEGER;",
+    )?;
 }
 ```
 
-**Why `diskutil eject` instead of `diskutil unmount`?**
-- `eject` both unmounts and powers down the USB device, making it safe to physically disconnect (the standard "eject" behavior users expect).
-- `unmount` only unmounts the filesystem but leaves the device powered on — users might still disconnect prematurely.
-- `diskutil eject` is what Finder uses under the hood.
+### 3. Extract bitrate in scanner
 
-### 2. Register the module: `src-tauri/src/device/mod.rs`
+**File**: `src-tauri/src/scanner/metadata.rs`
 
-Add `pub mod eject;` to the existing module:
-
+After the existing `let duration_secs = properties.duration().as_secs_f64();` line, add:
 ```rust
-pub mod detect;
-pub mod eject;  // NEW
-pub mod sync;
+let bitrate = properties.overall_bitrate();
 ```
 
-### 3. New Tauri command: `src-tauri/src/commands/device_cmd.rs`
+And include `bitrate` in the returned `Track` struct.
 
-Add an `eject_device` command at the end of the file:
+### 4. Update `library_repo.rs` -- all SQL and row mappings
+
+**File**: `src-tauri/src/db/library_repo.rs`
+
+- Add `bitrate` to `upsert_track` INSERT/UPDATE columns and params
+- Add `bitrate` to SELECT column lists and `Track` construction in all 6 query functions: `get_library_tree`, `search_tracks`, `get_tracks_by_artists`, `get_tracks_by_albums`, `get_tracks_for_device`, `get_incomplete_tracks`
+- Column index: `bitrate` becomes index 18 (after `has_album_art` at 17) in all row mappings
+
+### 5. New model structs for statistics
+
+**File**: `src-tauri/src/models/track.rs` (add after existing structs)
+
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FormatStat {
+    pub format: String,
+    pub count: usize,
+    pub total_size: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GenreStat {
+    pub genre: String,
+    pub count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LibraryStats {
+    pub total_tracks: usize,
+    pub total_artists: usize,
+    pub total_albums: usize,
+    pub total_size: u64,
+    pub total_duration_secs: f64,
+    pub avg_bitrate: Option<f64>,
+    pub formats: Vec<FormatStat>,
+    pub genres: Vec<GenreStat>,
+}
+```
+
+### 6. New repo function `get_library_stats`
+
+**File**: `src-tauri/src/db/library_repo.rs`
+
+```rust
+pub fn get_library_stats(conn: &Connection, library_root: &str) -> Result<LibraryStats, AppError> {
+    // Summary row
+    let (total_tracks, total_size, total_duration, avg_bitrate): (usize, u64, f64, Option<f64>) =
+        conn.query_row(
+            "SELECT COUNT(*), COALESCE(SUM(file_size), 0), COALESCE(SUM(duration_secs), 0.0),
+                    AVG(bitrate)
+             FROM tracks WHERE library_root = ?1",
+            params![library_root],
+            |row| Ok((
+                row.get::<_, i64>(0)? as usize,
+                row.get::<_, i64>(1)? as u64,
+                row.get::<_, f64>(2)?,
+                row.get::<_, Option<f64>>(3)?,
+            )),
+        )?;
+
+    let total_artists: usize = conn.query_row(
+        "SELECT COUNT(DISTINCT COALESCE(album_artist, artist, 'Unknown Artist'))
+         FROM tracks WHERE library_root = ?1",
+        params![library_root],
+        |row| row.get::<_, i64>(0).map(|v| v as usize),
+    )?;
+
+    let total_albums: usize = conn.query_row(
+        "SELECT COUNT(DISTINCT COALESCE(album, 'Unknown Album'))
+         FROM tracks WHERE library_root = ?1",
+        params![library_root],
+        |row| row.get::<_, i64>(0).map(|v| v as usize),
+    )?;
+
+    // Format breakdown
+    let mut fmt_stmt = conn.prepare(
+        "SELECT format, COUNT(*), COALESCE(SUM(file_size), 0)
+         FROM tracks WHERE library_root = ?1
+         GROUP BY format ORDER BY COUNT(*) DESC",
+    )?;
+    let formats = fmt_stmt
+        .query_map(params![library_root], |row| {
+            Ok(FormatStat {
+                format: row.get(0)?,
+                count: row.get::<_, i64>(1)? as usize,
+                total_size: row.get::<_, i64>(2)? as u64,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    // Genre breakdown
+    let mut genre_stmt = conn.prepare(
+        "SELECT COALESCE(genre, 'Unknown'), COUNT(*)
+         FROM tracks WHERE library_root = ?1
+         GROUP BY COALESCE(genre, 'Unknown') ORDER BY COUNT(*) DESC",
+    )?;
+    let genres = genre_stmt
+        .query_map(params![library_root], |row| {
+            Ok(GenreStat {
+                genre: row.get(0)?,
+                count: row.get::<_, i64>(1)? as usize,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(LibraryStats {
+        total_tracks,
+        total_artists,
+        total_albums,
+        total_size,
+        total_duration_secs: total_duration,
+        avg_bitrate,
+        formats,
+        genres,
+    })
+}
+```
+
+### 7. New Tauri command
+
+**File**: `src-tauri/src/commands/library.rs`
 
 ```rust
 #[tauri::command]
-pub async fn eject_device(
+pub async fn get_library_stats(
     db: tauri::State<'_, Mutex<Connection>>,
-    device_id: String,
-) -> Result<(), AppError> {
+    root: String,
+) -> Result<LibraryStats, AppError> {
     let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
-    let device = device_repo::get_device(&conn, &device_id)?;
-
-    let mount_path = device
-        .mount_path
-        .as_ref()
-        .ok_or_else(|| AppError::DeviceDisconnected(device.name.clone()))?;
-
-    if !std::path::Path::new(mount_path).exists() {
-        return Err(AppError::DeviceDisconnected(device.name.clone()));
-    }
-
-    crate::device::eject::eject_volume(mount_path)?;
-
-    // Clear the mount_path in the database since the device is now ejected
-    device_repo::update_mount_path(&conn, &device_id, "")?;
-
-    Ok(())
+    library_repo::get_library_stats(&conn, &root)
 }
 ```
 
-Key design decisions:
-- Takes `device_id` (not mount_path) so the backend controls the lookup — the frontend never passes raw paths to system commands (prevents command injection).
-- After successful eject, clears the `mount_path` in the database so the device shows as disconnected without requiring a re-detect.
-- The device record is preserved (not deleted) so it can be reconnected later.
+Add `LibraryStats` to the existing `use crate::models::track::{...}` import.
 
-### 4. Register the command: `src-tauri/src/lib.rs`
+### 8. Register command
 
-Add `commands::device_cmd::eject_device` to the `generate_handler![]` macro:
+**File**: `src-tauri/src/lib.rs`
 
+Add to `generate_handler![]`:
 ```rust
-commands::device_cmd::eject_device,  // NEW — after execute_device_sync
+commands::library::get_library_stats,
 ```
 
-### 5. Error handling
-
-Use `AppError::General` for eject failures. Adding a new variant is unnecessary complexity — the error message from `diskutil` is descriptive enough and the frontend only needs to display it as a string. All `AppError` variants serialize to strings anyway.
+---
 
 ## Frontend Changes
 
-### 6. New command wrapper: `src/lib/api/commands.ts`
+### 9. TypeScript types
 
-Add the `ejectDevice` function:
+**File**: `src/lib/api/types.ts`
 
+Add at end:
 ```typescript
-export function ejectDevice(deviceId: string): Promise<void> {
-  return invoke("eject_device", { deviceId });
+export interface FormatStat {
+  format: string;
+  count: number;
+  total_size: number;
+}
+
+export interface GenreStat {
+  genre: string;
+  count: number;
+}
+
+export interface LibraryStats {
+  total_tracks: number;
+  total_artists: number;
+  total_albums: number;
+  total_size: number;
+  total_duration_secs: number;
+  avg_bitrate: number | null;
+  formats: FormatStat[];
+  genres: GenreStat[];
 }
 ```
 
-### 7. Device store method: `src/lib/stores/device.svelte.ts`
+### 10. Command wrapper
 
-Add an `ejectDevice` method and tracking state to `DeviceStore`:
+**File**: `src/lib/api/commands.ts`
 
+Add `LibraryStats` to the type import. Add function:
 ```typescript
-ejecting = $state<string | null>(null);  // device ID currently being ejected
+export function getLibraryStats(root: string): Promise<LibraryStats> {
+  return invoke("get_library_stats", { root });
+}
+```
 
-async ejectDevice(deviceId: string) {
-    this.ejecting = deviceId;
-    this.error = null;
-    try {
-        await commands.ejectDevice(deviceId);
-        // Update the device in local state to show as disconnected
-        this.devices = this.devices.map((d) =>
-            d.device.id === deviceId
-                ? { ...d, connected: false, device: { ...d.device, mount_path: null } }
-                : d,
-        );
-    } catch (e) {
-        this.error = String(e);
-    } finally {
-        this.ejecting = null;
+### 11. New page: `Statistics.svelte`
+
+**File**: `src/pages/Statistics.svelte`
+
+A dashboard page with these sections:
+
+**Summary cards row**: Six cards showing total tracks, artists, albums, library size, total duration, and average bitrate. Uses `var(--bg-secondary)` background, same border radius as the rest of the app.
+
+**Format breakdown**: A list where each row shows format name (uppercased), count, total size, and a horizontal bar proportional to `count / maxCount`. Sorted by count descending (server-side).
+
+**Genre distribution**: Same layout as format breakdown but showing genre name and count.
+
+Implementation details:
+- Uses local `$state` for the stats object, loading state, and error
+- Uses `$effect` keyed on `libraryStore.libraryRoot` to reload stats when the library root changes
+- Calls `commands.getLibraryStats()` directly (no store needed for a read-only dashboard)
+- Utility functions within the component for formatting:
+  - `formatBytes(bytes)`: returns "X.X GB" or "X.X MB"
+  - `formatDuration(secs)`: returns "Xh Ym" or "Xm Ys"
+  - `formatBitrate(kbps)`: returns "X kbps"
+- Shows empty state ("No library loaded") when `libraryStore.libraryRoot` is empty
+- No store is created for statistics -- the page fetches and holds data locally
+
+Layout:
+```
++--------------------------------------------------+
+| Library Statistics                                |
++--------------------------------------------------+
+| [Tracks: 1,234] [Artists: 89] [Albums: 156]      |
+| [Size: 45.2 GB] [Duration: 82h 15m] [Avg: 942k] |
++--------------------------------------------------+
+| Format Breakdown           | Genre Distribution   |
+| FLAC ████████████ 60% 450  | Rock ██████████ 35%  |
+| MP3  ██████ 30% 225        | Jazz █████ 18%       |
+| M4A  ██ 10% 75             | Pop  ████ 15%        |
++--------------------------------------------------+
+```
+
+### 12. Router integration
+
+**File**: `src/App.svelte`
+
+- Add `"statistics"` to the `Page` type union: `type Page = "library" | "statistics" | "profiles" | ...`
+- Import: `import Statistics from "./pages/Statistics.svelte";`
+- Add nav item after "Library": `{ page: "statistics", label: "Statistics" }`
+- Add render case in the template:
+  ```svelte
+  {:else if currentPage === "statistics"}
+    <Statistics />
+  ```
+
+---
+
+## Dead Code
+
+None. All changes are additive. No existing functions become unused.
+
+---
+
+## Test Cases
+
+### Rust unit tests
+
+Add a `stats_tests` module in `src-tauri/src/db/library_repo.rs`:
+
+```rust
+#[cfg(test)]
+mod stats_tests {
+    use super::*;
+    use crate::db::schema;
+
+    fn setup_db() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::run_migrations(&conn).unwrap();
+        conn
+    }
+
+    fn make_track(
+        artist: &str, album: &str, format: &str, genre: &str,
+        size: u64, duration: f64, bitrate: Option<u32>,
+        file_suffix: &str,
+    ) -> Track {
+        Track {
+            id: None,
+            file_path: format!("/music/{}/{}/{}.{}", artist, album, file_suffix, format),
+            relative_path: format!("{}/{}/{}.{}", artist, album, file_suffix, format),
+            library_root: "/music".to_string(),
+            title: Some("Track".to_string()),
+            artist: Some(artist.to_string()),
+            album_artist: None,
+            album: Some(album.to_string()),
+            track_number: Some(1),
+            disc_number: Some(1),
+            year: Some(2024),
+            genre: Some(genre.to_string()),
+            duration_secs: Some(duration),
+            format: format.to_string(),
+            file_size: size,
+            modified_at: 1700000000,
+            hash: None,
+            has_album_art: false,
+            bitrate,
+        }
+    }
+
+    #[test]
+    fn test_empty_library_stats() {
+        let conn = setup_db();
+        let stats = get_library_stats(&conn, "/music").unwrap();
+        assert_eq!(stats.total_tracks, 0);
+        assert_eq!(stats.total_artists, 0);
+        assert_eq!(stats.total_albums, 0);
+        assert_eq!(stats.total_size, 0);
+        assert_eq!(stats.total_duration_secs, 0.0);
+        assert!(stats.avg_bitrate.is_none());
+        assert!(stats.formats.is_empty());
+        assert!(stats.genres.is_empty());
+    }
+
+    #[test]
+    fn test_stats_counts_and_totals() {
+        let conn = setup_db();
+        upsert_track(&conn, &make_track("ArtistA", "Album1", "flac", "Rock", 50_000_000, 300.0, Some(1411), "t1")).unwrap();
+        upsert_track(&conn, &make_track("ArtistA", "Album1", "flac", "Rock", 48_000_000, 280.0, Some(1411), "t2")).unwrap();
+        upsert_track(&conn, &make_track("ArtistB", "Album2", "mp3", "Jazz", 8_000_000, 240.0, Some(320), "t3")).unwrap();
+
+        let stats = get_library_stats(&conn, "/music").unwrap();
+        assert_eq!(stats.total_tracks, 3);
+        assert_eq!(stats.total_artists, 2);
+        assert_eq!(stats.total_albums, 2);
+        assert_eq!(stats.total_size, 106_000_000);
+        assert!((stats.total_duration_secs - 820.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_stats_format_breakdown() {
+        let conn = setup_db();
+        upsert_track(&conn, &make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, None, "t1")).unwrap();
+        upsert_track(&conn, &make_track("A", "A1", "flac", "Rock", 48_000_000, 280.0, None, "t2")).unwrap();
+        upsert_track(&conn, &make_track("B", "B1", "mp3", "Jazz", 8_000_000, 240.0, None, "t3")).unwrap();
+
+        let stats = get_library_stats(&conn, "/music").unwrap();
+        assert_eq!(stats.formats.len(), 2);
+        assert_eq!(stats.formats[0].format, "flac");
+        assert_eq!(stats.formats[0].count, 2);
+        assert_eq!(stats.formats[1].format, "mp3");
+        assert_eq!(stats.formats[1].count, 1);
+    }
+
+    #[test]
+    fn test_stats_genre_breakdown() {
+        let conn = setup_db();
+        upsert_track(&conn, &make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, None, "t1")).unwrap();
+        upsert_track(&conn, &make_track("B", "B1", "mp3", "Rock", 8_000_000, 240.0, None, "t2")).unwrap();
+        upsert_track(&conn, &make_track("C", "C1", "flac", "Jazz", 45_000_000, 300.0, None, "t3")).unwrap();
+
+        let stats = get_library_stats(&conn, "/music").unwrap();
+        assert_eq!(stats.genres.len(), 2);
+        assert_eq!(stats.genres[0].genre, "Rock");
+        assert_eq!(stats.genres[0].count, 2);
+        assert_eq!(stats.genres[1].genre, "Jazz");
+        assert_eq!(stats.genres[1].count, 1);
+    }
+
+    #[test]
+    fn test_stats_avg_bitrate() {
+        let conn = setup_db();
+        upsert_track(&conn, &make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, Some(1411), "t1")).unwrap();
+        upsert_track(&conn, &make_track("B", "B1", "mp3", "Jazz", 8_000_000, 240.0, Some(320), "t2")).unwrap();
+
+        let stats = get_library_stats(&conn, "/music").unwrap();
+        let avg = stats.avg_bitrate.unwrap();
+        assert!((avg - 865.5).abs() < 1.0); // (1411 + 320) / 2
+    }
+
+    #[test]
+    fn test_stats_avg_bitrate_with_nulls() {
+        let conn = setup_db();
+        upsert_track(&conn, &make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, Some(1000), "t1")).unwrap();
+        upsert_track(&conn, &make_track("B", "B1", "mp3", "Jazz", 8_000_000, 240.0, None, "t2")).unwrap();
+
+        let stats = get_library_stats(&conn, "/music").unwrap();
+        // AVG ignores NULLs in SQLite, so only the 1000 is counted
+        let avg = stats.avg_bitrate.unwrap();
+        assert!((avg - 1000.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn test_stats_scoped_to_library_root() {
+        let conn = setup_db();
+        upsert_track(&conn, &make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, None, "t1")).unwrap();
+        upsert_track(&conn, &{
+            let mut t = make_track("B", "B1", "mp3", "Jazz", 8_000_000, 240.0, None, "t2");
+            t.file_path = "/other/B/B1/t2.mp3".to_string();
+            t.relative_path = "B/B1/t2.mp3".to_string();
+            t.library_root = "/other".to_string();
+            t
+        }).unwrap();
+
+        let stats = get_library_stats(&conn, "/music").unwrap();
+        assert_eq!(stats.total_tracks, 1);
+        assert_eq!(stats.total_artists, 1);
+        assert_eq!(stats.formats.len(), 1);
     }
 }
 ```
 
-### 8. Eject button on `DeviceCard`: `src/lib/components/DeviceCard.svelte`
+### Frontend verification
 
-Add an `onEject` callback prop and an eject button to the device card.
+No dedicated frontend unit tests. The frontend is verified via:
+- `npm run check` (Svelte + TypeScript type checking) ensures type correctness
+- Manual verification that the Statistics page renders correctly
 
-**Props change:**
-```typescript
-let {
-    device,
-    busy = false,
-    ejecting = false,  // NEW
-    onConfigure,
-    onSync,
-    onDelete,
-    onEject,           // NEW
-}: {
-    device: DeviceWithStatus;
-    busy?: boolean;
-    ejecting?: boolean;
-    onConfigure: () => void;
-    onSync: () => void;
-    onDelete: () => void;
-    onEject: () => void;
-} = $props();
-```
+---
 
-**Button placement:** Add the eject button in the `device-actions` div. It should only be visible when the device is connected:
+## Implementation Steps (ordered)
 
-```html
-<div class="device-actions">
-    <button class="secondary" onclick={onConfigure}>Configure</button>
-    {#if device.connected}
-        <button
-            class="eject-btn"
-            onclick={onEject}
-            disabled={busy || ejecting}
-            title="Safely eject this device"
-        >
-            {ejecting ? "Ejecting..." : "Eject"}
-        </button>
-    {/if}
-    <button
-        class="primary"
-        onclick={onSync}
-        disabled={!device.connected || device.selected_artists.length === 0 || busy}
-    >
-        {busy ? "In Progress..." : "Sync"}
-    </button>
-    <button class="danger-btn" onclick={onDelete}>Delete</button>
-</div>
-```
+1. **Add `bitrate` field to `Track`** (`src-tauri/src/models/track.rs`) -- add `pub bitrate: Option<u32>` after `has_album_art`
 
-**Styling for the eject button:**
-```css
-.eject-btn {
-    background: none;
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-    padding: 6px 12px;
-    font-size: 13px;
-}
+2. **Add `bitrate` column migration** (`src-tauri/src/db/schema.rs`) -- same pattern as `has_album_art` migration
 
-.eject-btn:hover:not(:disabled) {
-    color: var(--text-primary);
-    border-color: var(--text-secondary);
-}
+3. **Extract bitrate in scanner** (`src-tauri/src/scanner/metadata.rs`) -- read `properties.overall_bitrate()`, include in returned Track
 
-.eject-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-```
+4. **Update `library_repo.rs`** -- add `bitrate` to `upsert_track` (INSERT/UPDATE + params), and to SELECT + row mapping in `get_library_tree`, `search_tracks`, `get_tracks_by_artists`, `get_tracks_by_albums`, `get_tracks_for_device`, `get_incomplete_tracks`. Column index 18 in all row mappings.
 
-### 9. Wire up in `DeviceSync.svelte`: `src/pages/DeviceSync.svelte`
+5. **Add stats model structs** (`src-tauri/src/models/track.rs`) -- `FormatStat`, `GenreStat`, `LibraryStats`
 
-Add a confirmation dialog and handler.
+6. **Add `get_library_stats` repo function** (`src-tauri/src/db/library_repo.rs`)
 
-**State:**
-```typescript
-let ejectingDeviceId = $state<string | null>(null);
-```
+7. **Add `get_library_stats` Tauri command** (`src-tauri/src/commands/library.rs`) -- add import for `LibraryStats`
 
-**Handler:**
-```typescript
-function handleEjectRequest(deviceId: string) {
-    ejectingDeviceId = deviceId;
-}
+8. **Register command** (`src-tauri/src/lib.rs`) -- add to `generate_handler![]`
 
-async function confirmEject() {
-    if (!ejectingDeviceId) return;
-    await deviceStore.ejectDevice(ejectingDeviceId);
-    ejectingDeviceId = null;
-}
+9. **Add TypeScript types** (`src/lib/api/types.ts`) -- `FormatStat`, `GenreStat`, `LibraryStats`
 
-function cancelEject() {
-    ejectingDeviceId = null;
-}
-```
+10. **Add command wrapper** (`src/lib/api/commands.ts`) -- `getLibraryStats()`, add `LibraryStats` to import
 
-**Pass to DeviceCard:**
-```html
-<DeviceCard
-    {device}
-    busy={isBusy}
-    ejecting={deviceStore.ejecting === device.device.id}
-    onConfigure={() => handleConfigure(device.device.id)}
-    onSync={() => handleSync(device.device.id)}
-    onDelete={() => handleDelete(device.device.id)}
-    onEject={() => handleEjectRequest(device.device.id)}
-/>
-```
+11. **Create `Statistics.svelte`** (`src/pages/Statistics.svelte`) -- summary cards, format breakdown, genre distribution
 
-**Confirmation dialog** (reuses the same overlay pattern as the register dialog):
-```html
-{#if ejectingDeviceId}
-    {@const ejectDevice = deviceStore.devices.find((d) => d.device.id === ejectingDeviceId)}
-    <div class="register-dialog-overlay" role="presentation" onclick={cancelEject}>
-        <div class="register-dialog" role="dialog" onclick={(e) => e.stopPropagation()}>
-            <h3>Eject Device</h3>
-            <p>Are you sure you want to eject "{ejectDevice?.device.name}"?</p>
-            <p class="hint">Make sure no sync is in progress before ejecting.</p>
-            <div class="dialog-actions">
-                <button class="secondary" onclick={cancelEject}>Cancel</button>
-                <button class="primary" onclick={confirmEject}>Eject</button>
-            </div>
-        </div>
-    </div>
-{/if}
-```
+12. **Wire into router** (`src/App.svelte`) -- add to Page type, import, nav item, render case
 
-## Safety Considerations
+13. **Add Rust tests** in `library_repo.rs` -- the `stats_tests` module above
 
-1. **Don't eject during active sync**: The eject button is disabled when `busy` is true (which covers `computing_diff` and `syncing` phases). The confirmation dialog also warns the user.
-
-2. **Confirmation prompt**: Always show a confirmation dialog before ejecting. Accidental eject during file transfer could cause data corruption.
-
-3. **Backend validation**: The backend verifies the device exists and is currently mounted before attempting to eject. If the mount path doesn't exist, it returns `DeviceDisconnected`.
-
-4. **No raw paths from frontend**: The frontend sends only the `device_id`; the backend resolves the mount path internally. This prevents path injection attacks.
-
-5. **State update after eject**: After a successful eject, the device's `mount_path` is cleared in both the database and the frontend state, so it immediately shows as "Disconnected" without needing a re-detect cycle.
-
-6. **diskutil error handling**: If `diskutil eject` fails (e.g., "resource busy"), the error message from stderr is returned to the frontend and displayed in the error banner.
-
-## Edge Cases
-
-- **Device already disconnected**: If the user unplugs before clicking Eject, the backend returns `DeviceDisconnected`. The frontend shows an error banner but the device state will correct itself on next detect.
-- **Eject fails because files are open**: macOS `diskutil eject` will fail with "resource busy". The error propagates to the UI. No state is changed in this case.
-- **Multiple volumes on same physical device**: `diskutil eject` ejects the specific volume, not the entire physical device. If the device has multiple partitions, only the addressed volume is ejected.
-- **Re-connecting after eject**: When the user reconnects and clicks "Detect Devices", the detect flow will find the volume again and update the mount_path in the database (existing logic in `detect_volumes` handles this).
-
-## Files to Modify
-
-| File | Action |
-|------|--------|
-| `src-tauri/src/device/eject.rs` | **CREATE** — eject logic using `diskutil eject` |
-| `src-tauri/src/device/mod.rs` | **MODIFY** — add `pub mod eject;` |
-| `src-tauri/src/commands/device_cmd.rs` | **MODIFY** — add `eject_device` command |
-| `src-tauri/src/lib.rs` | **MODIFY** — register `eject_device` in `generate_handler![]` |
-| `src/lib/api/commands.ts` | **MODIFY** — add `ejectDevice()` wrapper |
-| `src/lib/stores/device.svelte.ts` | **MODIFY** — add `ejecting` state + `ejectDevice()` method |
-| `src/lib/components/DeviceCard.svelte` | **MODIFY** — add eject button + `onEject` prop |
-| `src/pages/DeviceSync.svelte` | **MODIFY** — add confirmation dialog + handler |
-
-## Platform Considerations
-
-- This implementation is **macOS-only** (`diskutil` is macOS-specific). This is consistent with the rest of the device detection code (`detect.rs` already uses `diskutil info -plist` and reads from `/Volumes`).
-- If cross-platform support is needed later, the `eject.rs` module can be extended with `#[cfg(target_os)]` blocks for Linux (`udisksctl`) and Windows (`mountvol /d` or WMI).
-- No new crate dependencies are needed — `std::process::Command` is sufficient.
+14. **Verify** -- run `cargo test` from `src-tauri/` and `npm run check` from project root

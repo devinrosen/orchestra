@@ -17,6 +17,7 @@ export interface Track {
   modified_at: number;
   hash: string | null;
   has_album_art: boolean;
+  bitrate: number | null;
 }
 
 export interface AlbumNode {
@@ -219,3 +220,25 @@ export type ProgressEvent =
   | { type: "sync_progress"; files_completed: number; total_files: number; bytes_completed: number; total_bytes: number; current_file: string }
   | { type: "sync_complete"; files_synced: number; duration_ms: number }
   | { type: "sync_error"; file: string; error: string };
+
+export interface FormatStat {
+  format: string;
+  count: number;
+  total_size: number;
+}
+
+export interface GenreStat {
+  genre: string;
+  count: number;
+}
+
+export interface LibraryStats {
+  total_tracks: number;
+  total_artists: number;
+  total_albums: number;
+  total_size: number;
+  total_duration_secs: number;
+  avg_bitrate: number | null;
+  formats: FormatStat[];
+  genres: GenreStat[];
+}

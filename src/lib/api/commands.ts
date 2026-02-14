@@ -17,6 +17,7 @@ import type {
   AlbumSummary,
   TrackMetadataUpdate,
   AlbumArt,
+  LibraryStats,
 } from "./types";
 
 export function scanDirectory(
@@ -163,4 +164,8 @@ export function updateTrackMetadata(updates: TrackMetadataUpdate[]): Promise<Tra
 
 export function getIncompleteTracks(root: string): Promise<Track[]> {
   return invoke("get_incomplete_tracks", { root });
+}
+
+export function getLibraryStats(root: string): Promise<LibraryStats> {
+  return invoke("get_library_stats", { root });
 }

@@ -117,5 +117,16 @@ pub fn run_migrations(conn: &Connection) -> Result<(), AppError> {
         )?;
     }
 
+    let has_bitrate: bool = conn
+        .prepare("SELECT COUNT(*) FROM pragma_table_info('tracks') WHERE name='bitrate'")?
+        .query_row([], |row| row.get::<_, i64>(0))
+        .map(|count| count > 0)?;
+
+    if !has_bitrate {
+        conn.execute_batch(
+            "ALTER TABLE tracks ADD COLUMN bitrate INTEGER;",
+        )?;
+    }
+
     Ok(())
 }

@@ -8,7 +8,7 @@ use walkdir::WalkDir;
 use crate::db::library_repo;
 use crate::error::AppError;
 use crate::models::progress::ProgressEvent;
-use crate::models::track::{is_audio_file, LibraryTree, Track};
+use crate::models::track::{is_audio_file, LibraryStats, LibraryTree, Track};
 use crate::scanner::{metadata, walker};
 
 #[tauri::command]
@@ -212,4 +212,13 @@ pub async fn get_incomplete_tracks(
 ) -> Result<Vec<Track>, AppError> {
     let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
     library_repo::get_incomplete_tracks(&conn, &root)
+}
+
+#[tauri::command]
+pub async fn get_library_stats(
+    db: tauri::State<'_, Mutex<Connection>>,
+    root: String,
+) -> Result<LibraryStats, AppError> {
+    let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
+    library_repo::get_library_stats(&conn, &root)
 }

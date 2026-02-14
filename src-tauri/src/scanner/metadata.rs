@@ -50,6 +50,7 @@ pub fn extract_metadata(path: &Path, library_root: &Path) -> Result<Track, AppEr
         };
 
     let duration_secs = properties.duration().as_secs_f64();
+    let bitrate = properties.overall_bitrate();
 
     Ok(Track {
         id: None,
@@ -70,5 +71,6 @@ pub fn extract_metadata(path: &Path, library_root: &Path) -> Result<Track, AppEr
         modified_at,
         hash: None,
         has_album_art,
+        bitrate,
     })
 }
