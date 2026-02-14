@@ -1,6 +1,6 @@
-import type { LibraryTree, Track, ProgressEvent, LibraryViewMode, AlbumEntry, GenreNode, FolderNode } from "../api/types";
+import type { LibraryTree, Track, ProgressEvent, LibraryViewMode, ArtistNode, AlbumEntry, GenreNode, FolderNode } from "../api/types";
 import * as commands from "../api/commands";
-import { flattenTree, groupByAlbum, groupByGenre, groupByFolder } from "../utils/library-grouping";
+import { flattenTree, groupByAlbum, groupByGenre, groupByFolder, filterArtists, filterAlbums, filterGenres, filterFolders } from "../utils/library-grouping";
 
 class LibraryStore {
   tree = $state<LibraryTree | null>(null);
@@ -8,7 +8,6 @@ class LibraryStore {
   scanning = $state(false);
   scanStartedAt = $state<number | null>(null);
   scanProgress = $state({ filesFound: 0, filesProcessed: 0, currentFile: "", dirsTotal: 0, dirsCompleted: 0 });
-  searchResults = $state<Track[]>([]);
   searchQuery = $state("");
   error = $state<string | null>(null);
   viewMode = $state<LibraryViewMode>("artist");
@@ -26,6 +25,38 @@ class LibraryStore {
 
   folderTree = $derived<FolderNode | null>(
     this.viewMode === "folder" ? groupByFolder(this.allTracks) : null
+  );
+
+  filteredArtists = $derived<ArtistNode[]>(
+    this.viewMode === "artist"
+      ? (this.searchQuery.length >= 2 && this.tree
+          ? filterArtists(this.tree.artists, this.searchQuery)
+          : this.tree?.artists ?? [])
+      : []
+  );
+
+  filteredAlbumEntries = $derived<AlbumEntry[]>(
+    this.viewMode === "album"
+      ? (this.searchQuery.length >= 2
+          ? filterAlbums(this.albumEntries, this.searchQuery)
+          : this.albumEntries)
+      : []
+  );
+
+  filteredGenreNodes = $derived<GenreNode[]>(
+    this.viewMode === "genre"
+      ? (this.searchQuery.length >= 2
+          ? filterGenres(this.genreNodes, this.searchQuery)
+          : this.genreNodes)
+      : []
+  );
+
+  filteredFolderTree = $derived<FolderNode | null>(
+    this.viewMode === "folder"
+      ? (this.searchQuery.length >= 2 && this.folderTree
+          ? filterFolders(this.folderTree, this.searchQuery)
+          : this.folderTree)
+      : null
   );
 
   async setViewMode(mode: LibraryViewMode) {
@@ -103,17 +134,8 @@ class LibraryStore {
     }
   }
 
-  async search(query: string) {
+  search(query: string) {
     this.searchQuery = query;
-    if (query.trim().length < 2) {
-      this.searchResults = [];
-      return;
-    }
-    try {
-      this.searchResults = await commands.searchLibrary(query);
-    } catch (e) {
-      this.error = String(e);
-    }
   }
 }
 

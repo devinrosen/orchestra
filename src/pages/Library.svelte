@@ -12,6 +12,13 @@
   import { libraryStore } from "../lib/stores/library.svelte";
   import { playerStore } from "../lib/stores/player.svelte";
 
+  const searchPlaceholders: Record<LibraryViewMode, string> = {
+    artist: "Search artists...",
+    album: "Search albums...",
+    genre: "Search genres...",
+    folder: "Search folders...",
+  };
+
   let editingTrack = $state<Track | null>(null);
   let editingAlbum = $state<{ tracks: Track[]; albumName: string; artistName: string } | null>(null);
   let showMetadataReport = $state(false);
@@ -76,11 +83,32 @@
     const tree = libraryStore.tree;
     if (!tree) return "";
     const mode = libraryStore.viewMode;
-    if (mode === "artist") return `${tree.artists.length} artists`;
-    if (mode === "album") return `${libraryStore.albumEntries.length} albums`;
-    if (mode === "genre") return `${libraryStore.genreNodes.length} genres`;
+    if (mode === "artist") return `${libraryStore.filteredArtists.length} artists`;
+    if (mode === "album") return `${libraryStore.filteredAlbumEntries.length} albums`;
+    if (mode === "genre") return `${libraryStore.filteredGenreNodes.length} genres`;
     return "";
   }
+
+  function isSearchActive(): boolean {
+    return libraryStore.searchQuery.length >= 2;
+  }
+
+  function hasNoResults(): boolean {
+    if (!isSearchActive()) return false;
+    const mode = libraryStore.viewMode;
+    if (mode === "artist") return libraryStore.filteredArtists.length === 0;
+    if (mode === "album") return libraryStore.filteredAlbumEntries.length === 0;
+    if (mode === "genre") return libraryStore.filteredGenreNodes.length === 0;
+    if (mode === "folder") return libraryStore.filteredFolderTree === null;
+    return false;
+  }
+
+  const noResultsMessages: Record<LibraryViewMode, string> = {
+    artist: "No matching artists",
+    album: "No matching albums",
+    genre: "No matching genres",
+    folder: "No matching folders",
+  };
 </script>
 
 <div class="library-page">
@@ -89,7 +117,7 @@
     <div class="header-actions">
       <input
         type="text"
-        placeholder="Search tracks..."
+        placeholder={searchPlaceholders[libraryStore.viewMode]}
         oninput={onSearchInput}
         class="search-input"
       />
@@ -127,21 +155,7 @@
     </div>
   {/if}
 
-  {#if libraryStore.searchQuery.length >= 2 && libraryStore.searchResults.length > 0}
-    <div class="search-results">
-      <h3>Search Results ({libraryStore.searchResults.length})</h3>
-      <div class="results-list">
-        {#each libraryStore.searchResults as track}
-          <div class="result-item">
-            <button class="result-play-btn" onclick={() => handlePlayTrack(track, [track])} title="Play">&#9654;</button>
-            <span class="result-title">{track.title ?? track.relative_path}</span>
-            <span class="result-artist">{track.artist ?? "Unknown"}</span>
-            <span class="result-album">{track.album ?? "Unknown"}</span>
-          </div>
-        {/each}
-      </div>
-    </div>
-  {:else if libraryStore.tree}
+  {#if libraryStore.tree}
     <div class="library-info">
       <span class="root-path">{libraryStore.tree.root}</span>
       <span class="track-count">{libraryStore.tree.total_tracks} tracks</span>
@@ -160,9 +174,11 @@
       {/each}
     </div>
 
-    {#if libraryStore.viewMode === "artist"}
+    {#if hasNoResults()}
+      <div class="no-results">{noResultsMessages[libraryStore.viewMode]}</div>
+    {:else if libraryStore.viewMode === "artist"}
       <TreeView
-        artists={libraryStore.tree.artists}
+        artists={libraryStore.filteredArtists}
         onEditTrack={handleEditTrack}
         onEditAlbum={handleEditAlbum}
         onPlayTrack={handlePlayTrack}
@@ -170,7 +186,7 @@
       />
     {:else if libraryStore.viewMode === "album"}
       <AlbumListView
-        albums={libraryStore.albumEntries}
+        albums={libraryStore.filteredAlbumEntries}
         onEditTrack={handleEditTrack}
         onEditAlbum={handleEditAlbum}
         onPlayTrack={handlePlayTrack}
@@ -178,15 +194,15 @@
       />
     {:else if libraryStore.viewMode === "genre"}
       <GenreTreeView
-        genres={libraryStore.genreNodes}
+        genres={libraryStore.filteredGenreNodes}
         onEditTrack={handleEditTrack}
         onEditAlbum={handleEditAlbum}
         onPlayTrack={handlePlayTrack}
         onPlayAlbum={handlePlayAlbum}
       />
-    {:else if libraryStore.viewMode === "folder" && libraryStore.folderTree}
+    {:else if libraryStore.viewMode === "folder" && libraryStore.filteredFolderTree}
       <FolderTreeView
-        root={libraryStore.folderTree}
+        root={libraryStore.filteredFolderTree}
         onEditTrack={handleEditTrack}
         onPlayTrack={handlePlayTrack}
         onPlayFolder={handlePlayAlbum}
@@ -329,50 +345,12 @@
     color: var(--text-secondary);
   }
 
-  .search-results {
-    flex: 1;
-    overflow-y: auto;
-  }
-
-  .search-results h3 {
-    font-size: 14px;
-    margin-bottom: 8px;
-  }
-
-  .result-item {
-    display: flex;
-    gap: 16px;
-    padding: 6px 8px;
-    border-radius: var(--radius);
-    font-size: 13px;
-  }
-
-  .result-item:hover {
-    background: var(--bg-secondary);
-  }
-
-  .result-play-btn {
-    background: none;
-    border: none;
+  .no-results {
+    padding: 24px;
+    text-align: center;
     color: var(--text-secondary);
-    font-size: 10px;
-    padding: 2px 6px;
-    flex-shrink: 0;
-    opacity: 0;
-    transition: opacity 0.15s;
+    font-size: 14px;
   }
-
-  .result-item:hover .result-play-btn {
-    opacity: 1;
-  }
-
-  .result-play-btn:hover {
-    color: var(--accent);
-  }
-
-  .result-title { flex: 2; }
-  .result-artist { flex: 1; color: var(--text-secondary); }
-  .result-album { flex: 1; color: var(--text-secondary); }
 
   .report-btn {
     position: relative;
