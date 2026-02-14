@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { ArtistNode, Track } from "../api/types";
+  import AlbumHeader from "./AlbumHeader.svelte";
   import TrackRow from "./TrackRow.svelte";
   import PlaylistPicker from "./PlaylistPicker.svelte";
 
@@ -60,28 +61,15 @@
           {#each artist.albums as album}
             {@const albumKey = `${artist.name}::${album.name}`}
             <div class="album-node">
-              <div class="album-header">
-                <button class="tree-toggle" onclick={() => toggleAlbum(albumKey)}>
-                  <span class="chevron" class:expanded={expandedAlbums.has(albumKey)}>&#9654;</span>
-                  <span class="album-name">{album.name}</span>
-                  {#if album.year}<span class="year">({album.year})</span>{/if}
-                  <span class="count">{album.tracks.length} track{album.tracks.length !== 1 ? "s" : ""}</span>
-                </button>
-                {#if onPlayAlbum}
-                  <button
-                    class="action-btn play-album-btn"
-                    onclick={(e) => { e.stopPropagation(); onPlayAlbum(album.tracks); }}
-                    title="Play album"
-                  >&#9654;</button>
-                {/if}
-                {#if onEditAlbum}
-                  <button
-                    class="action-btn edit-btn"
-                    onclick={(e) => { e.stopPropagation(); onEditAlbum(album.tracks, album.name, artist.name); }}
-                    title="Edit album metadata"
-                  >&#9998;</button>
-                {/if}
-              </div>
+              <AlbumHeader
+                albumName={album.name}
+                year={album.year}
+                trackCount={album.tracks.length}
+                expanded={expandedAlbums.has(albumKey)}
+                onToggle={() => toggleAlbum(albumKey)}
+                onPlay={onPlayAlbum ? () => onPlayAlbum(album.tracks) : undefined}
+                onEdit={onEditAlbum ? () => onEditAlbum(album.tracks, album.name, artist.name) : undefined}
+              />
 
               {#if expandedAlbums.has(albumKey)}
                 <div class="children">
@@ -147,15 +135,6 @@
     font-weight: 600;
   }
 
-  .album-name {
-    font-weight: 500;
-  }
-
-  .year {
-    color: var(--text-secondary);
-    font-size: 12px;
-  }
-
   .count {
     color: var(--text-secondary);
     font-size: 12px;
@@ -165,38 +144,4 @@
   .children {
     padding-left: 20px;
   }
-
-  .album-header {
-    display: flex;
-    align-items: center;
-  }
-
-  .album-header .tree-toggle {
-    flex: 1;
-  }
-
-  .action-btn {
-    background: none;
-    border: none;
-    color: var(--text-secondary);
-    font-size: 14px;
-    padding: 4px 8px;
-    border-radius: var(--radius);
-    opacity: 0;
-    transition: opacity 0.15s;
-  }
-
-  .album-header:hover .action-btn {
-    opacity: 1;
-  }
-
-  .action-btn:hover {
-    color: var(--accent);
-    background: var(--bg-tertiary);
-  }
-
-  .play-album-btn {
-    font-size: 12px;
-  }
-
 </style>
