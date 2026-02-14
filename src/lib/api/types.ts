@@ -278,3 +278,17 @@ export interface RemoveTracksRequest {
   playlist_id: string;
   track_ids: number[];
 }
+
+export type DuplicateMatchType = "content_hash" | "metadata_similarity";
+
+export interface DuplicateGroup {
+  match_type: DuplicateMatchType;
+  match_key: string;
+  tracks: Track[];
+}
+
+export interface DuplicateResult {
+  groups: DuplicateGroup[];
+  total_duplicate_tracks: number;
+  total_wasted_bytes: number;
+}

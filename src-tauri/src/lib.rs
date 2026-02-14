@@ -38,6 +38,8 @@ pub fn run() {
             commands::library::search_library,
             commands::library::get_incomplete_tracks,
             commands::library::get_library_stats,
+            commands::library::find_duplicates,
+            commands::library::delete_duplicate_tracks,
             commands::profile::create_profile,
             commands::profile::get_profile,
             commands::profile::list_profiles,

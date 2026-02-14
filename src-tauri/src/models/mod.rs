@@ -1,6 +1,7 @@
 pub mod conflict;
 pub mod device;
 pub mod diff;
+pub mod duplicate;
 pub mod playlist;
 pub mod progress;
 pub mod sync_profile;

@@ -8,6 +8,7 @@
   import MetadataEditor from "../lib/components/MetadataEditor.svelte";
   import AlbumEditor from "../lib/components/AlbumEditor.svelte";
   import MetadataReport from "../lib/components/MetadataReport.svelte";
+  import DuplicateReport from "../lib/components/DuplicateReport.svelte";
   import ProgressBar from "../lib/components/ProgressBar.svelte";
   import { libraryStore } from "../lib/stores/library.svelte";
   import { playerStore } from "../lib/stores/player.svelte";
@@ -22,6 +23,7 @@
   let editingTrack = $state<Track | null>(null);
   let editingAlbum = $state<{ tracks: Track[]; albumName: string; artistName: string } | null>(null);
   let showMetadataReport = $state(false);
+  let showDuplicateReport = $state(false);
 
   const viewModes: { mode: LibraryViewMode; label: string }[] = [
     { mode: "artist", label: "Artists" },
@@ -127,6 +129,9 @@
           {#if libraryStore.incompleteCount > 0}
             <span class="report-badge">{libraryStore.incompleteCount}</span>
           {/if}
+        </button>
+        <button class="secondary" onclick={() => (showDuplicateReport = true)}>
+          Duplicates
         </button>
         <button class="secondary" onclick={() => libraryStore.scan(libraryStore.libraryRoot)}>
           Rescan
@@ -237,6 +242,16 @@
       libraryRoot={libraryStore.libraryRoot}
       onEditTrack={handleReportEditTrack}
       onClose={() => (showMetadataReport = false)}
+    />
+  {/if}
+
+  {#if showDuplicateReport && libraryStore.libraryRoot}
+    <DuplicateReport
+      libraryRoot={libraryStore.libraryRoot}
+      onClose={() => {
+        showDuplicateReport = false;
+        if (libraryStore.libraryRoot) libraryStore.loadTree(libraryStore.libraryRoot);
+      }}
     />
   {/if}
 </div>
