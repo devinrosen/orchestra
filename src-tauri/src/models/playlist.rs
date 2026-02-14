@@ -9,13 +9,6 @@ pub struct Playlist {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct PlaylistTrack {
-    pub playlist_id: String,
-    pub track_id: i64,
-    pub position: i32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlaylistWithTracks {
     pub playlist: Playlist,
     pub tracks: Vec<crate::models::track::Track>,

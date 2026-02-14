@@ -54,11 +54,7 @@
 
   function playTrack(track: Track) {
     if (!playlistStore.selectedPlaylist) return;
-    const tracks = playlistStore.selectedPlaylist.tracks;
-    const index = tracks.findIndex((t) => t.file_path === track.file_path);
-    playerStore.queue = tracks;
-    playerStore.queueIndex = index >= 0 ? index : 0;
-    playerStore.playPlaylist(tracks.slice(index >= 0 ? index : 0));
+    playerStore.playTrack(track, playlistStore.selectedPlaylist.tracks);
   }
 
   async function handleExport(format: string) {
