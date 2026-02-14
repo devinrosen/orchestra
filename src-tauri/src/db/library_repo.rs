@@ -8,15 +8,15 @@ use crate::models::track::{AlbumNode, ArtistNode, LibraryTree, Track};
 pub fn upsert_track(conn: &Connection, track: &Track) -> Result<(), AppError> {
     conn.execute(
         "INSERT INTO tracks (file_path, relative_path, library_root, title, artist, album_artist, album,
-         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)
+         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
          ON CONFLICT(file_path) DO UPDATE SET
            relative_path=excluded.relative_path, library_root=excluded.library_root,
            title=excluded.title, artist=excluded.artist, album_artist=excluded.album_artist,
            album=excluded.album, track_number=excluded.track_number, disc_number=excluded.disc_number,
            year=excluded.year, genre=excluded.genre, duration_secs=excluded.duration_secs,
            format=excluded.format, file_size=excluded.file_size, modified_at=excluded.modified_at,
-           hash=excluded.hash",
+           hash=excluded.hash, has_album_art=excluded.has_album_art",
         params![
             track.file_path,
             track.relative_path,
@@ -34,6 +34,7 @@ pub fn upsert_track(conn: &Connection, track: &Track) -> Result<(), AppError> {
             track.file_size,
             track.modified_at,
             track.hash,
+            track.has_album_art,
         ],
     )?;
     Ok(())
@@ -134,7 +135,7 @@ pub fn get_track_fingerprints(
 pub fn get_library_tree(conn: &Connection, library_root: &str) -> Result<LibraryTree, AppError> {
     let mut stmt = conn.prepare(
         "SELECT id, file_path, relative_path, library_root, title, artist, album_artist, album,
-         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash
+         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art
          FROM tracks WHERE library_root = ?1
          ORDER BY COALESCE(album_artist, artist) COLLATE NOCASE,
                   album COLLATE NOCASE,
@@ -162,6 +163,7 @@ pub fn get_library_tree(conn: &Connection, library_root: &str) -> Result<Library
                 file_size: row.get(14)?,
                 modified_at: row.get(15)?,
                 hash: row.get(16)?,
+                has_album_art: row.get(17)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -249,7 +251,7 @@ pub fn get_tracks_by_artists(
         .collect();
     let sql = format!(
         "SELECT id, file_path, relative_path, library_root, title, artist, album_artist, album,
-         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash
+         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art
          FROM tracks
          WHERE library_root = ?1
            AND COALESCE(album_artist, artist, 'Unknown Artist') IN ({})
@@ -286,6 +288,7 @@ pub fn get_tracks_by_artists(
                 file_size: row.get(14)?,
                 modified_at: row.get(15)?,
                 hash: row.get(16)?,
+                has_album_art: row.get(17)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -296,7 +299,7 @@ pub fn search_tracks(conn: &Connection, query: &str) -> Result<Vec<Track>, AppEr
     let pattern = format!("%{}%", query);
     let mut stmt = conn.prepare(
         "SELECT id, file_path, relative_path, library_root, title, artist, album_artist, album,
-         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash
+         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art
          FROM tracks
          WHERE title LIKE ?1 OR artist LIKE ?1 OR album LIKE ?1 OR album_artist LIKE ?1
          ORDER BY artist COLLATE NOCASE, album COLLATE NOCASE, track_number
@@ -323,6 +326,48 @@ pub fn search_tracks(conn: &Connection, query: &str) -> Result<Vec<Track>, AppEr
                 file_size: row.get(14)?,
                 modified_at: row.get(15)?,
                 hash: row.get(16)?,
+                has_album_art: row.get(17)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(tracks)
+}
+
+pub fn get_incomplete_tracks(
+    conn: &Connection,
+    library_root: &str,
+) -> Result<Vec<Track>, AppError> {
+    let mut stmt = conn.prepare(
+        "SELECT id, file_path, relative_path, library_root, title, artist, album_artist, album,
+         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art
+         FROM tracks
+         WHERE library_root = ?1
+           AND (title IS NULL OR artist IS NULL OR album IS NULL OR has_album_art = 0)
+         ORDER BY COALESCE(album_artist, artist) COLLATE NOCASE, album COLLATE NOCASE, track_number",
+    )?;
+
+    let tracks = stmt
+        .query_map(params![library_root], |row| {
+            Ok(Track {
+                id: Some(row.get(0)?),
+                file_path: row.get(1)?,
+                relative_path: row.get(2)?,
+                library_root: row.get(3)?,
+                title: row.get(4)?,
+                artist: row.get(5)?,
+                album_artist: row.get(6)?,
+                album: row.get(7)?,
+                track_number: row.get(8)?,
+                disc_number: row.get(9)?,
+                year: row.get(10)?,
+                genre: row.get(11)?,
+                duration_secs: row.get(12)?,
+                format: row.get(13)?,
+                file_size: row.get(14)?,
+                modified_at: row.get(15)?,
+                hash: row.get(16)?,
+                has_album_art: row.get(17)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;

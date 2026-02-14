@@ -12,6 +12,7 @@ class LibraryStore {
   searchQuery = $state("");
   error = $state<string | null>(null);
   viewMode = $state<LibraryViewMode>("artist");
+  incompleteCount = $state<number>(0);
 
   allTracks = $derived<Track[]>(this.tree ? flattenTree(this.tree.artists) : []);
 
@@ -72,8 +73,18 @@ class LibraryStore {
     try {
       this.libraryRoot = root;
       this.tree = await commands.getLibraryTree(root);
+      await this.loadIncompleteCount(root);
     } catch (e) {
       this.error = String(e);
+    }
+  }
+
+  async loadIncompleteCount(root: string) {
+    try {
+      const tracks = await commands.getIncompleteTracks(root);
+      this.incompleteCount = tracks.length;
+    } catch (_) {
+      // non-critical
     }
   }
 

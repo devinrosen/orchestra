@@ -146,3 +146,7 @@ export function getTrackArtwork(filePath: string): Promise<AlbumArt | null> {
 export function updateTrackMetadata(updates: TrackMetadataUpdate[]): Promise<Track[]> {
   return invoke("update_track_metadata", { updates });
 }
+
+export function getIncompleteTracks(root: string): Promise<Track[]> {
+  return invoke("get_incomplete_tracks", { root });
+}

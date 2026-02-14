@@ -96,5 +96,17 @@ pub fn run_migrations(conn: &Connection) -> Result<(), AppError> {
         ",
     )?;
 
+    // Migration: add has_album_art column if it doesn't exist
+    let has_column: bool = conn
+        .prepare("SELECT COUNT(*) FROM pragma_table_info('tracks') WHERE name='has_album_art'")?
+        .query_row([], |row| row.get::<_, i64>(0))
+        .map(|count| count > 0)?;
+
+    if !has_column {
+        conn.execute_batch(
+            "ALTER TABLE tracks ADD COLUMN has_album_art INTEGER NOT NULL DEFAULT 0;",
+        )?;
+    }
+
     Ok(())
 }
