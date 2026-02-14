@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Track, TrackMetadataUpdate, AlbumArt } from "../api/types";
   import { getTrackArtwork, updateTrackMetadata } from "../api/commands";
+  import { formatDuration } from "../utils/format";
 
   let {
     tracks,
@@ -33,13 +34,6 @@
       }).catch(() => {});
     }
   });
-
-  function formatDuration(secs: number | null): string {
-    if (secs == null) return "--:--";
-    const m = Math.floor(secs / 60);
-    const s = Math.floor(secs % 60);
-    return `${m}:${s.toString().padStart(2, "0")}`;
-  }
 
   async function handleSave() {
     saving = true;

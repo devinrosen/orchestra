@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ArtistNode, AlbumNode, Track } from "../api/types";
+  import type { ArtistNode, Track } from "../api/types";
   import TrackRow from "./TrackRow.svelte";
 
   let {

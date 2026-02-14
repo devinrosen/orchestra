@@ -5,6 +5,31 @@ use crate::error::AppError;
 use crate::models::device::{AlbumSelection, AlbumSummary, ArtistSummary};
 use crate::models::track::{AlbumNode, ArtistNode, FormatStat, GenreStat, LibraryStats, LibraryTree, Track};
 
+/// Maps a row from a SELECT that returns all 19 Track columns (id first) to a Track struct.
+fn track_from_row(row: &rusqlite::Row) -> rusqlite::Result<Track> {
+    Ok(Track {
+        id: Some(row.get(0)?),
+        file_path: row.get(1)?,
+        relative_path: row.get(2)?,
+        library_root: row.get(3)?,
+        title: row.get(4)?,
+        artist: row.get(5)?,
+        album_artist: row.get(6)?,
+        album: row.get(7)?,
+        track_number: row.get(8)?,
+        disc_number: row.get(9)?,
+        year: row.get(10)?,
+        genre: row.get(11)?,
+        duration_secs: row.get(12)?,
+        format: row.get(13)?,
+        file_size: row.get(14)?,
+        modified_at: row.get(15)?,
+        hash: row.get(16)?,
+        has_album_art: row.get(17)?,
+        bitrate: row.get(18)?,
+    })
+}
+
 pub fn upsert_track(conn: &Connection, track: &Track) -> Result<(), AppError> {
     conn.execute(
         "INSERT INTO tracks (file_path, relative_path, library_root, title, artist, album_artist, album,
@@ -145,29 +170,7 @@ pub fn get_library_tree(conn: &Connection, library_root: &str) -> Result<Library
     )?;
 
     let tracks = stmt
-        .query_map(params![library_root], |row| {
-            Ok(Track {
-                id: Some(row.get(0)?),
-                file_path: row.get(1)?,
-                relative_path: row.get(2)?,
-                library_root: row.get(3)?,
-                title: row.get(4)?,
-                artist: row.get(5)?,
-                album_artist: row.get(6)?,
-                album: row.get(7)?,
-                track_number: row.get(8)?,
-                disc_number: row.get(9)?,
-                year: row.get(10)?,
-                genre: row.get(11)?,
-                duration_secs: row.get(12)?,
-                format: row.get(13)?,
-                file_size: row.get(14)?,
-                modified_at: row.get(15)?,
-                hash: row.get(16)?,
-                has_album_art: row.get(17)?,
-                bitrate: row.get(18)?,
-            })
-        })?
+        .query_map(params![library_root], track_from_row)?
         .collect::<Result<Vec<_>, _>>()?;
 
     let total_tracks = tracks.len();
@@ -239,65 +242,6 @@ pub fn list_artists(conn: &Connection, library_root: &str) -> Result<Vec<ArtistS
     Ok(artists)
 }
 
-pub fn get_tracks_by_artists(
-    conn: &Connection,
-    library_root: &str,
-    artist_names: &[String],
-) -> Result<Vec<Track>, AppError> {
-    if artist_names.is_empty() {
-        return Ok(vec![]);
-    }
-
-    let placeholders: Vec<String> = (0..artist_names.len())
-        .map(|i| format!("?{}", i + 2))
-        .collect();
-    let sql = format!(
-        "SELECT id, file_path, relative_path, library_root, title, artist, album_artist, album,
-         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate
-         FROM tracks
-         WHERE library_root = ?1
-           AND COALESCE(album_artist, artist, 'Unknown Artist') IN ({})
-         ORDER BY COALESCE(album_artist, artist) COLLATE NOCASE, album COLLATE NOCASE, disc_number, track_number",
-        placeholders.join(",")
-    );
-
-    let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
-    param_values.push(Box::new(library_root.to_string()));
-    for name in artist_names {
-        param_values.push(Box::new(name.clone()));
-    }
-    let params_ref: Vec<&dyn rusqlite::types::ToSql> =
-        param_values.iter().map(|p| p.as_ref()).collect();
-
-    let mut stmt = conn.prepare(&sql)?;
-    let tracks = stmt
-        .query_map(params_ref.as_slice(), |row| {
-            Ok(Track {
-                id: Some(row.get(0)?),
-                file_path: row.get(1)?,
-                relative_path: row.get(2)?,
-                library_root: row.get(3)?,
-                title: row.get(4)?,
-                artist: row.get(5)?,
-                album_artist: row.get(6)?,
-                album: row.get(7)?,
-                track_number: row.get(8)?,
-                disc_number: row.get(9)?,
-                year: row.get(10)?,
-                genre: row.get(11)?,
-                duration_secs: row.get(12)?,
-                format: row.get(13)?,
-                file_size: row.get(14)?,
-                modified_at: row.get(15)?,
-                hash: row.get(16)?,
-                has_album_art: row.get(17)?,
-                bitrate: row.get(18)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(tracks)
-}
-
 pub fn search_tracks(conn: &Connection, query: &str) -> Result<Vec<Track>, AppError> {
     let pattern = format!("%{}%", query);
     let mut stmt = conn.prepare(
@@ -310,97 +254,9 @@ pub fn search_tracks(conn: &Connection, query: &str) -> Result<Vec<Track>, AppEr
     )?;
 
     let tracks = stmt
-        .query_map(params![pattern], |row| {
-            Ok(Track {
-                id: Some(row.get(0)?),
-                file_path: row.get(1)?,
-                relative_path: row.get(2)?,
-                library_root: row.get(3)?,
-                title: row.get(4)?,
-                artist: row.get(5)?,
-                album_artist: row.get(6)?,
-                album: row.get(7)?,
-                track_number: row.get(8)?,
-                disc_number: row.get(9)?,
-                year: row.get(10)?,
-                genre: row.get(11)?,
-                duration_secs: row.get(12)?,
-                format: row.get(13)?,
-                file_size: row.get(14)?,
-                modified_at: row.get(15)?,
-                hash: row.get(16)?,
-                has_album_art: row.get(17)?,
-                bitrate: row.get(18)?,
-            })
-        })?
+        .query_map(params![pattern], track_from_row)?
         .collect::<Result<Vec<_>, _>>()?;
 
-    Ok(tracks)
-}
-
-pub fn get_tracks_by_albums(
-    conn: &Connection,
-    library_root: &str,
-    albums: &[AlbumSelection],
-) -> Result<Vec<Track>, AppError> {
-    if albums.is_empty() {
-        return Ok(vec![]);
-    }
-
-    // Build OR clauses for each (artist_name, album_name) pair
-    let mut conditions = Vec::new();
-    let mut param_values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
-    param_values.push(Box::new(library_root.to_string()));
-    let mut idx = 2;
-    for album in albums {
-        conditions.push(format!(
-            "(COALESCE(album_artist, artist, 'Unknown Artist') = ?{} AND COALESCE(album, 'Unknown Album') = ?{})",
-            idx, idx + 1
-        ));
-        param_values.push(Box::new(album.artist_name.clone()));
-        param_values.push(Box::new(album.album_name.clone()));
-        idx += 2;
-    }
-
-    let sql = format!(
-        "SELECT id, file_path, relative_path, library_root, title, artist, album_artist, album,
-         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate
-         FROM tracks
-         WHERE library_root = ?1
-           AND ({})
-         ORDER BY COALESCE(album_artist, artist) COLLATE NOCASE, album COLLATE NOCASE, disc_number, track_number",
-        conditions.join(" OR ")
-    );
-
-    let params_ref: Vec<&dyn rusqlite::types::ToSql> =
-        param_values.iter().map(|p| p.as_ref()).collect();
-
-    let mut stmt = conn.prepare(&sql)?;
-    let tracks = stmt
-        .query_map(params_ref.as_slice(), |row| {
-            Ok(Track {
-                id: Some(row.get(0)?),
-                file_path: row.get(1)?,
-                relative_path: row.get(2)?,
-                library_root: row.get(3)?,
-                title: row.get(4)?,
-                artist: row.get(5)?,
-                album_artist: row.get(6)?,
-                album: row.get(7)?,
-                track_number: row.get(8)?,
-                disc_number: row.get(9)?,
-                year: row.get(10)?,
-                genre: row.get(11)?,
-                duration_secs: row.get(12)?,
-                format: row.get(13)?,
-                file_size: row.get(14)?,
-                modified_at: row.get(15)?,
-                hash: row.get(16)?,
-                has_album_art: row.get(17)?,
-                bitrate: row.get(18)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
     Ok(tracks)
 }
 
@@ -474,29 +330,7 @@ pub fn get_tracks_for_device(
 
     let mut stmt = conn.prepare(&sql)?;
     let tracks = stmt
-        .query_map(params_ref.as_slice(), |row| {
-            Ok(Track {
-                id: Some(row.get(0)?),
-                file_path: row.get(1)?,
-                relative_path: row.get(2)?,
-                library_root: row.get(3)?,
-                title: row.get(4)?,
-                artist: row.get(5)?,
-                album_artist: row.get(6)?,
-                album: row.get(7)?,
-                track_number: row.get(8)?,
-                disc_number: row.get(9)?,
-                year: row.get(10)?,
-                genre: row.get(11)?,
-                duration_secs: row.get(12)?,
-                format: row.get(13)?,
-                file_size: row.get(14)?,
-                modified_at: row.get(15)?,
-                hash: row.get(16)?,
-                has_album_art: row.get(17)?,
-                bitrate: row.get(18)?,
-            })
-        })?
+        .query_map(params_ref.as_slice(), track_from_row)?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(tracks)
 }
@@ -541,29 +375,7 @@ pub fn get_incomplete_tracks(
     )?;
 
     let tracks = stmt
-        .query_map(params![library_root], |row| {
-            Ok(Track {
-                id: Some(row.get(0)?),
-                file_path: row.get(1)?,
-                relative_path: row.get(2)?,
-                library_root: row.get(3)?,
-                title: row.get(4)?,
-                artist: row.get(5)?,
-                album_artist: row.get(6)?,
-                album: row.get(7)?,
-                track_number: row.get(8)?,
-                disc_number: row.get(9)?,
-                year: row.get(10)?,
-                genre: row.get(11)?,
-                duration_secs: row.get(12)?,
-                format: row.get(13)?,
-                file_size: row.get(14)?,
-                modified_at: row.get(15)?,
-                hash: row.get(16)?,
-                has_album_art: row.get(17)?,
-                bitrate: row.get(18)?,
-            })
-        })?
+        .query_map(params![library_root], track_from_row)?
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(tracks)

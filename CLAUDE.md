@@ -68,6 +68,7 @@ TypeScript types in `src/lib/api/types.ts` mirror Rust structs exactly.
 - Profile IDs are UUIDv4 strings
 - All timestamps are Unix epoch seconds (i64)
 - `AppError` serializes to string for frontend consumption
+- Artist grouping uses `COALESCE(album_artist, artist, 'Unknown Artist')` — this is the canonical SQL pattern for display-artist across all queries
 - `tauri::Manager` trait must be imported when using `app.path()` or `app.manage()`
 
 ## Memory
