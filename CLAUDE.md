@@ -15,7 +15,7 @@ npm run check        # Svelte + TypeScript type checking
 
 # Rust backend (from src-tauri/)
 cargo build          # Debug build
-cargo test           # Run all unit tests (13 tests in sync/diff.rs and sync/two_way.rs)
+cargo test           # Run all unit tests
 cargo test test_name # Run a single test by name
 ```
 
