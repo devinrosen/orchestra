@@ -1,6 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { playerStore } from "../stores/player.svelte";
+  import QueuePanel from "./QueuePanel.svelte";
+
+  let showQueue = $state(false);
 
   let audioEl: HTMLAudioElement;
 
@@ -82,6 +85,9 @@
   {/if}
 
   <div class="volume-section">
+    <button class="ctrl-btn queue-btn" class:active={showQueue} onclick={() => showQueue = !showQueue} title="Play Queue">
+      &#x2630;
+    </button>
     <button class="ctrl-btn volume-btn" onclick={() => playerStore.setMuted(!playerStore.muted)} title={playerStore.muted ? "Unmute" : "Mute"}>
       {playerStore.muted || playerStore.volume === 0 ? "\u{1F507}" : "\u{1F509}"}
     </button>
@@ -96,6 +102,10 @@
     />
   </div>
 </div>
+
+{#if showQueue}
+  <QueuePanel onClose={() => showQueue = false} />
+{/if}
 
 <style>
   .now-playing-bar {
@@ -248,6 +258,15 @@
     gap: 6px;
     flex-shrink: 0;
     min-width: 120px;
+  }
+
+  .queue-btn {
+    font-size: 14px;
+  }
+
+  .queue-btn.active {
+    color: var(--accent);
+    background: var(--bg-tertiary);
   }
 
   .volume-btn {

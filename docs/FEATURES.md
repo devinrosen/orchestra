@@ -24,7 +24,7 @@ Statuses: `[ ]` not started · `[designed]` plan exists · `[implemented]` code 
 
 - [done] **Play music by song or album** — Add audio playback support so users can play individual tracks or full albums directly from the library view.
 - [done] **Playlist support** — Create, manage, and reorder playlists within the app, with export to M3U/PLS formats for use in other players.
-- [ ] **Play queue viewer** — Add a button in the player bar to open a panel showing the current play queue (upcoming songs, current track highlighted). Works when playing an album or a playlist. Users can see what's coming next, skip ahead by clicking a track, and reorder or remove items from the queue.
+- [done] **Play queue viewer** — Add a button in the player bar to open a panel showing the current play queue (upcoming songs, current track highlighted). Works when playing an album or a playlist. Users can see what's coming next, skip ahead by clicking a track, and reorder or remove items from the queue.
 
 ## Device Sync
 
