@@ -10,7 +10,7 @@ Statuses: `[ ]` not started · `[designed]` plan exists · `[implemented]` code 
 - [ ] **Auto-fetch album art** — Automatically look up and download album artwork from online sources (MusicBrainz, Cover Art Archive) for tracks or albums missing art.
 - [ ] **File organization/renaming** — Auto-rename and move files into a folder structure based on metadata patterns (e.g. `Artist/Album/01 - Title.flac`) with a preview before applying.
 - [done] **Multiple library view modes** — In addition to the current Artist > Album > Track tree, support alternative browse modes: by Album, by Genre, and by Folder. A segmented toggle at the top of the library view switches between modes. Preference persists across restarts. Folder view includes a play button to queue all tracks in a folder.
-- [implemented] **Library statistics** — Dashboard showing format breakdown, genre distribution, total library size, number of artists/albums/tracks, and average bitrate.
+- [done] **Library statistics** — Dashboard showing format breakdown, genre distribution, total library size, number of artists/albums/tracks, and average bitrate.
 
 ## UI / UX
 
