@@ -14,9 +14,6 @@ pub enum AppError {
     #[error("Metadata error: {0}")]
     Metadata(String),
 
-    #[error("Scan cancelled")]
-    ScanCancelled,
-
     #[error("Sync cancelled")]
     SyncCancelled,
 
@@ -34,9 +31,6 @@ pub enum AppError {
 
     #[error("Path not accessible: {0}")]
     PathNotAccessible(String),
-
-    #[error("Disk full")]
-    DiskFull,
 
     #[error("{0}")]
     General(String),

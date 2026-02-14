@@ -17,10 +17,6 @@ impl CancelToken {
         self.flag.store(true, Ordering::Relaxed);
     }
 
-    pub fn is_cancelled(&self) -> bool {
-        self.flag.load(Ordering::Relaxed)
-    }
-
     pub fn flag(&self) -> Arc<AtomicBool> {
         self.flag.clone()
     }
