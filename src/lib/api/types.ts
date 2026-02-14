@@ -242,3 +242,39 @@ export interface LibraryStats {
   formats: FormatStat[];
   genres: GenreStat[];
 }
+
+export interface Playlist {
+  id: string;
+  name: string;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface PlaylistWithTracks {
+  playlist: Playlist;
+  tracks: Track[];
+}
+
+export interface CreatePlaylistRequest {
+  name: string;
+}
+
+export interface UpdatePlaylistRequest {
+  id: string;
+  name?: string;
+}
+
+export interface AddTracksRequest {
+  playlist_id: string;
+  track_ids: number[];
+}
+
+export interface ReorderTracksRequest {
+  playlist_id: string;
+  track_ids: number[];
+}
+
+export interface RemoveTracksRequest {
+  playlist_id: string;
+  track_ids: number[];
+}

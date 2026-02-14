@@ -23,6 +23,9 @@ pub enum AppError {
     #[error("Profile not found: {0}")]
     ProfileNotFound(String),
 
+    #[error("Playlist not found: {0}")]
+    PlaylistNotFound(String),
+
     #[error("Device not found: {0}")]
     DeviceNotFound(String),
 

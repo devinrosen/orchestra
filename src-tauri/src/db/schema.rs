@@ -94,6 +94,22 @@ pub fn run_migrations(conn: &Connection) -> Result<(), AppError> {
         );
         CREATE INDEX IF NOT EXISTS idx_device_album_device ON device_album_selections(device_id);
 
+        CREATE TABLE IF NOT EXISTS playlists (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS playlist_tracks (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            playlist_id TEXT NOT NULL REFERENCES playlists(id) ON DELETE CASCADE,
+            track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+            position INTEGER NOT NULL,
+            UNIQUE(playlist_id, track_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_playlist_tracks_playlist ON playlist_tracks(playlist_id);
+
         CREATE TABLE IF NOT EXISTS device_file_cache (
             device_id TEXT NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
             relative_path TEXT NOT NULL,

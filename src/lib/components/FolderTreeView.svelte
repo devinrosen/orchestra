@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { FolderNode, Track } from "../api/types";
   import TrackRow from "./TrackRow.svelte";
+  import PlaylistPicker from "./PlaylistPicker.svelte";
 
   let {
     root,
@@ -15,6 +16,16 @@
   } = $props();
 
   let expandedFolders = $state<Set<string>>(new Set());
+
+  let showPicker = $state(false);
+  let pickerTrackIds = $state<number[]>([]);
+
+  function handleAddToPlaylist(track: Track) {
+    if (track.id != null) {
+      pickerTrackIds = [track.id];
+      showPicker = true;
+    }
+  }
 
   function toggleFolder(path: string) {
     const next = new Set(expandedFolders);
@@ -66,6 +77,7 @@
       titleFallback={track.title ? undefined : track.relative_path.split("/").pop() ?? track.relative_path}
       onPlay={onPlayTrack}
       onEdit={onEditTrack}
+      onAddToPlaylist={handleAddToPlaylist}
     />
   {/each}
 {/snippet}
@@ -73,6 +85,10 @@
 <div class="tree-view">
   {@render folderContent(root, 0)}
 </div>
+
+{#if showPicker}
+  <PlaylistPicker trackIds={pickerTrackIds} onClose={() => showPicker = false} />
+{/if}
 
 <style>
   .tree-view {

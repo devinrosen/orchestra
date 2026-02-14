@@ -68,6 +68,12 @@ class PlayerStore {
     this.loadAndPlay();
   }
 
+  playPlaylist(tracks: Track[]) {
+    this.queue = tracks;
+    this.queueIndex = 0;
+    this.loadAndPlay();
+  }
+
   playAlbum(tracks: Track[]) {
     const sorted = [...tracks].sort((a, b) => {
       const discA = a.disc_number ?? 1;

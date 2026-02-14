@@ -7,17 +7,22 @@
   import DeviceSync from "./pages/DeviceSync.svelte";
   import Settings from "./pages/Settings.svelte";
   import Statistics from "./pages/Statistics.svelte";
+  import Playlists from "./pages/Playlists.svelte";
   import GlobalStatusBar from "./lib/components/GlobalStatusBar.svelte";
   import NowPlayingBar from "./lib/components/NowPlayingBar.svelte";
   import { libraryStore } from "./lib/stores/library.svelte";
   import { playerStore } from "./lib/stores/player.svelte";
+  import { playlistStore } from "./lib/stores/playlist.svelte";
 
-  type Page = "library" | "statistics" | "profiles" | "sync-preview" | "devices" | "settings";
+  type Page = "library" | "statistics" | "playlists" | "profiles" | "sync-preview" | "devices" | "settings";
 
   let currentPage = $state<Page>("library");
   let pageData = $state<Record<string, unknown>>({});
 
-  onMount(() => libraryStore.init());
+  onMount(() => {
+    libraryStore.init();
+    playlistStore.load();
+  });
 
   function navigate(page: string, data?: Record<string, unknown>) {
     currentPage = page as Page;
@@ -27,6 +32,7 @@
   const navItems: { page: Page; label: string }[] = [
     { page: "library", label: "Library" },
     { page: "statistics", label: "Statistics" },
+    { page: "playlists", label: "Playlists" },
     { page: "profiles", label: "Sync Profiles" },
     { page: "devices", label: "Devices" },
     { page: "settings", label: "Settings" },
@@ -54,6 +60,8 @@
       <Library />
     {:else if currentPage === "statistics"}
       <Statistics />
+    {:else if currentPage === "playlists"}
+      <Playlists />
     {:else if currentPage === "profiles"}
       <SyncProfiles onNavigate={navigate} />
     {:else if currentPage === "sync-preview"}

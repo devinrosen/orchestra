@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { GenreNode, Track } from "../api/types";
   import TrackRow from "./TrackRow.svelte";
+  import PlaylistPicker from "./PlaylistPicker.svelte";
 
   let {
     genres = [],
@@ -18,6 +19,16 @@
 
   let expandedGenres = $state<Set<string>>(new Set());
   let expandedAlbums = $state<Set<string>>(new Set());
+
+  let showPicker = $state(false);
+  let pickerTrackIds = $state<number[]>([]);
+
+  function handleAddToPlaylist(track: Track) {
+    if (track.id != null) {
+      pickerTrackIds = [track.id];
+      showPicker = true;
+    }
+  }
 
   function toggleGenre(name: string) {
     const next = new Set(expandedGenres);
@@ -81,6 +92,7 @@
                       siblingTracks={album.tracks}
                       onPlay={onPlayTrack}
                       onEdit={onEditTrack}
+                      onAddToPlaylist={handleAddToPlaylist}
                     />
                   {/each}
                 </div>
@@ -92,6 +104,10 @@
     </div>
   {/each}
 </div>
+
+{#if showPicker}
+  <PlaylistPicker trackIds={pickerTrackIds} onClose={() => showPicker = false} />
+{/if}
 
 <style>
   .tree-view {
