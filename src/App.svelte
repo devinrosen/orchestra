@@ -11,6 +11,7 @@
   import GlobalStatusBar from "./lib/components/GlobalStatusBar.svelte";
   import NowPlayingBar from "./lib/components/NowPlayingBar.svelte";
   import VisualizerPanel from "./lib/components/VisualizerPanel.svelte";
+  import EqualizerPanel from "./lib/components/EqualizerPanel.svelte";
   import { libraryStore } from "./lib/stores/library.svelte";
   import { playerStore } from "./lib/stores/player.svelte";
   import { playlistStore } from "./lib/stores/playlist.svelte";
@@ -84,6 +85,9 @@
     </main>
     {#if playerStore.currentTrack && playerStore.visualizerActive}
       <VisualizerPanel onClose={() => playerStore.toggleVisualizer()} />
+    {/if}
+    {#if playerStore.currentTrack && playerStore.equalizerActive}
+      <EqualizerPanel onClose={() => playerStore.toggleEqualizer()} />
     {/if}
     {#if playerStore.currentTrack}
       <NowPlayingBar />

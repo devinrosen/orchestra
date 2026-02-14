@@ -1,6 +1,7 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import type { Track, AlbumArt } from "../api/types";
 import { getTrackArtwork } from "../api/commands";
+import { equalizerStore } from "./equalizer.svelte";
 
 class PlayerStore {
   queue = $state<Track[]>([]);
@@ -13,6 +14,7 @@ class PlayerStore {
   artwork = $state<AlbumArt | null>(null);
   error = $state<string | null>(null);
   visualizerActive = $state(false);
+  equalizerActive = $state(false);
 
   currentTrack = $derived(this.queue.length > 0 ? this.queue[this.queueIndex] : null);
   hasNext = $derived(this.queueIndex < this.queue.length - 1);
@@ -36,6 +38,13 @@ class PlayerStore {
     }
   }
 
+  toggleEqualizer() {
+    this.equalizerActive = !this.equalizerActive;
+    if (this.equalizerActive && !this.audioContext && this.audio) {
+      this.initAudioContext();
+    }
+  }
+
   private initAudioContext() {
     if (!this.audio || this.audioContext) return;
     this.audioContext = new AudioContext();
@@ -43,8 +52,13 @@ class PlayerStore {
     this.analyser.fftSize = 2048;
     this.analyser.smoothingTimeConstant = 0.8;
     this.sourceNode = this.audioContext.createMediaElementSource(this.audio);
-    this.sourceNode.connect(this.analyser);
+    equalizerStore.connectFilters(
+      this.audioContext,
+      this.sourceNode,
+      this.analyser,
+    );
     this.analyser.connect(this.audioContext.destination);
+    equalizerStore.loadState();
   }
 
   bindAudio(el: HTMLAudioElement) {
