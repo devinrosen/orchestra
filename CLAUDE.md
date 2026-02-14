@@ -29,6 +29,8 @@ Frontend calls Rust via typed `invoke()` wrappers in `src/lib/api/commands.ts`. 
 
 All 14 commands are registered in `src-tauri/src/lib.rs` via `generate_handler![]`.
 
+**UI test mocks**: When adding a new `invoke()` command, also add a handler in `e2e/tauri-mocks.ts` so the `/ui-test` Playwright tests render the page with data instead of error/empty state.
+
 ### State Management
 
 - **Rust**: SQLite connection behind `Mutex<Connection>` managed as Tauri state. A `Mutex<CancelToken>` (wrapping `Arc<AtomicBool>`) enables sync cancellation.

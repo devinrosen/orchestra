@@ -7,7 +7,7 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SCREENSHOT_DIR = path.resolve(__dirname, "../../test-results/screenshots");
 
-const pages = [
+const allPages = [
   { nav: "Library", file: "library" },
   { nav: "Statistics", file: "statistics" },
   { nav: "Playlists", file: "playlists" },
@@ -15,6 +15,12 @@ const pages = [
   { nav: "Devices", file: "devices" },
   { nav: "Settings", file: "settings" },
 ] as const;
+
+// Filter pages via PAGES env var: PAGES=library,settings npx playwright test
+const pageFilter = process.env.PAGES?.split(",").map((s) => s.trim().toLowerCase());
+const pages = pageFilter
+  ? allPages.filter((p) => pageFilter.includes(p.file))
+  : allPages;
 
 test.beforeEach(async ({ page }) => {
   await page.addInitScript(tauriMockScript);
