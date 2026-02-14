@@ -20,6 +20,7 @@
     folder: "Search folders...",
   };
 
+  let libraryTab = $state<"browse" | "manage">("browse");
   let editingTrack = $state<Track | null>(null);
   let editingAlbum = $state<{ tracks: Track[]; albumName: string; artistName: string } | null>(null);
   let showMetadataReport = $state(false);
@@ -116,30 +117,9 @@
 <div class="library-page">
   <div class="library-header">
     <h2>Music Library</h2>
-    <div class="header-actions">
-      <input
-        type="text"
-        placeholder={searchPlaceholders[libraryStore.viewMode]}
-        oninput={onSearchInput}
-        class="search-input"
-      />
-      {#if libraryStore.tree && !libraryStore.scanning}
-        <button class="secondary report-btn" onclick={() => (showMetadataReport = true)}>
-          Metadata Report
-          {#if libraryStore.incompleteCount > 0}
-            <span class="report-badge">{libraryStore.incompleteCount}</span>
-          {/if}
-        </button>
-        <button class="secondary" onclick={() => (showDuplicateReport = true)}>
-          Duplicates
-        </button>
-        <button class="secondary" onclick={() => libraryStore.scan(libraryStore.libraryRoot)}>
-          Rescan
-        </button>
-      {/if}
-      <button class="primary" onclick={pickDirectory} disabled={libraryStore.scanning}>
-        {libraryStore.scanning ? "Scanning..." : "Open Directory"}
-      </button>
+    <div class="library-tabs">
+      <button class="tab-btn" class:active={libraryTab === "browse"} onclick={() => libraryTab = "browse"}>Browse</button>
+      <button class="tab-btn" class:active={libraryTab === "manage"} onclick={() => libraryTab = "manage"}>Manage</button>
     </div>
   </div>
 
@@ -160,62 +140,101 @@
     </div>
   {/if}
 
-  {#if libraryStore.tree}
-    <div class="library-info">
-      <span class="root-path">{libraryStore.tree.root}</span>
-      <span class="track-count">{libraryStore.tree.total_tracks} tracks</span>
-      <span class="info-summary">{infoSummary()}</span>
-    </div>
+  {#if libraryTab === "browse"}
+    {#if libraryStore.tree}
+      <input
+        type="text"
+        placeholder={searchPlaceholders[libraryStore.viewMode]}
+        oninput={onSearchInput}
+        class="search-input"
+      />
 
-    <div class="view-mode-toggle">
-      {#each viewModes as { mode, label }}
-        <button
-          class="mode-btn"
-          class:active={libraryStore.viewMode === mode}
-          onclick={() => libraryStore.setViewMode(mode)}
-        >
-          {label}
-        </button>
-      {/each}
-    </div>
+      <div class="view-mode-toggle">
+        {#each viewModes as { mode, label }}
+          <button
+            class="mode-btn"
+            class:active={libraryStore.viewMode === mode}
+            onclick={() => libraryStore.setViewMode(mode)}
+          >
+            {label}
+          </button>
+        {/each}
+      </div>
 
-    {#if hasNoResults()}
-      <div class="no-results">{noResultsMessages[libraryStore.viewMode]}</div>
-    {:else if libraryStore.viewMode === "artist"}
-      <TreeView
-        artists={libraryStore.filteredArtists}
-        onEditTrack={handleEditTrack}
-        onEditAlbum={handleEditAlbum}
-        onPlayTrack={handlePlayTrack}
-        onPlayAlbum={handlePlayAlbum}
-      />
-    {:else if libraryStore.viewMode === "album"}
-      <AlbumListView
-        albums={libraryStore.filteredAlbumEntries}
-        onEditTrack={handleEditTrack}
-        onEditAlbum={handleEditAlbum}
-        onPlayTrack={handlePlayTrack}
-        onPlayAlbum={handlePlayAlbum}
-      />
-    {:else if libraryStore.viewMode === "genre"}
-      <GenreTreeView
-        genres={libraryStore.filteredGenreNodes}
-        onEditTrack={handleEditTrack}
-        onEditAlbum={handleEditAlbum}
-        onPlayTrack={handlePlayTrack}
-        onPlayAlbum={handlePlayAlbum}
-      />
-    {:else if libraryStore.viewMode === "folder" && libraryStore.filteredFolderTree}
-      <FolderTreeView
-        root={libraryStore.filteredFolderTree}
-        onEditTrack={handleEditTrack}
-        onPlayTrack={handlePlayTrack}
-        onPlayFolder={handlePlayAlbum}
-      />
+      {#if hasNoResults()}
+        <div class="no-results">{noResultsMessages[libraryStore.viewMode]}</div>
+      {:else if libraryStore.viewMode === "artist"}
+        <TreeView
+          artists={libraryStore.filteredArtists}
+          onEditTrack={handleEditTrack}
+          onEditAlbum={handleEditAlbum}
+          onPlayTrack={handlePlayTrack}
+          onPlayAlbum={handlePlayAlbum}
+        />
+      {:else if libraryStore.viewMode === "album"}
+        <AlbumListView
+          albums={libraryStore.filteredAlbumEntries}
+          onEditTrack={handleEditTrack}
+          onEditAlbum={handleEditAlbum}
+          onPlayTrack={handlePlayTrack}
+          onPlayAlbum={handlePlayAlbum}
+        />
+      {:else if libraryStore.viewMode === "genre"}
+        <GenreTreeView
+          genres={libraryStore.filteredGenreNodes}
+          onEditTrack={handleEditTrack}
+          onEditAlbum={handleEditAlbum}
+          onPlayTrack={handlePlayTrack}
+          onPlayAlbum={handlePlayAlbum}
+        />
+      {:else if libraryStore.viewMode === "folder" && libraryStore.filteredFolderTree}
+        <FolderTreeView
+          root={libraryStore.filteredFolderTree}
+          onEditTrack={handleEditTrack}
+          onPlayTrack={handlePlayTrack}
+          onPlayFolder={handlePlayAlbum}
+        />
+      {/if}
+    {:else if !libraryStore.scanning}
+      <div class="empty-state">
+        <p>No library loaded. Click "Open Directory" to scan a music folder.</p>
+      </div>
     {/if}
-  {:else if !libraryStore.scanning}
-    <div class="empty-state">
-      <p>No library loaded. Click "Open Directory" to scan a music folder.</p>
+  {:else}
+    <div class="manage-content">
+      {#if libraryStore.tree}
+        <div class="library-info">
+          <span class="root-path">{libraryStore.tree.root}</span>
+          <span class="track-count">{libraryStore.tree.total_tracks} tracks</span>
+          <span class="info-summary">{infoSummary()}</span>
+        </div>
+      {/if}
+
+      <div class="manage-actions">
+        <button class="primary" onclick={pickDirectory} disabled={libraryStore.scanning}>
+          {libraryStore.scanning ? "Scanning..." : "Open Directory"}
+        </button>
+        {#if libraryStore.tree && !libraryStore.scanning}
+          <button class="secondary" onclick={() => libraryStore.scan(libraryStore.libraryRoot)}>
+            Rescan Library
+          </button>
+          <button class="secondary report-btn" onclick={() => (showMetadataReport = true)}>
+            Metadata Report
+            {#if libraryStore.incompleteCount > 0}
+              <span class="report-badge">{libraryStore.incompleteCount}</span>
+            {/if}
+          </button>
+          <button class="secondary" onclick={() => (showDuplicateReport = true)}>
+            Duplicate Detection
+          </button>
+        {/if}
+      </div>
+
+      {#if !libraryStore.tree && !libraryStore.scanning}
+        <div class="empty-state">
+          <p>No library loaded. Open a directory to get started.</p>
+        </div>
+      {/if}
     </div>
   {/if}
 
@@ -276,10 +295,32 @@
     font-weight: 600;
   }
 
-  .header-actions {
+  .library-tabs {
     display: flex;
-    gap: 8px;
-    align-items: center;
+    background: var(--bg-secondary);
+    border-radius: var(--radius);
+    padding: 2px;
+  }
+
+  .tab-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    padding: 5px 14px;
+    font-size: 13px;
+    border-radius: calc(var(--radius) - 2px);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .tab-btn:hover {
+    color: var(--text-primary);
+  }
+
+  .tab-btn.active {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-weight: 500;
   }
 
   .search-input {
@@ -350,6 +391,19 @@
     background: var(--bg-tertiary);
     color: var(--text-primary);
     font-weight: 500;
+  }
+
+  .manage-content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    flex: 1;
+  }
+
+  .manage-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
   }
 
   .empty-state {
