@@ -3,20 +3,20 @@ use rusqlite::{params, Connection};
 
 use crate::error::AppError;
 use crate::models::device::{AlbumSelection, AlbumSummary, ArtistSummary};
-use crate::models::track::{AlbumNode, ArtistNode, LibraryTree, Track};
+use crate::models::track::{AlbumNode, ArtistNode, FormatStat, GenreStat, LibraryStats, LibraryTree, Track};
 
 pub fn upsert_track(conn: &Connection, track: &Track) -> Result<(), AppError> {
     conn.execute(
         "INSERT INTO tracks (file_path, relative_path, library_root, title, artist, album_artist, album,
-         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
+         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)
          ON CONFLICT(file_path) DO UPDATE SET
            relative_path=excluded.relative_path, library_root=excluded.library_root,
            title=excluded.title, artist=excluded.artist, album_artist=excluded.album_artist,
            album=excluded.album, track_number=excluded.track_number, disc_number=excluded.disc_number,
            year=excluded.year, genre=excluded.genre, duration_secs=excluded.duration_secs,
            format=excluded.format, file_size=excluded.file_size, modified_at=excluded.modified_at,
-           hash=excluded.hash, has_album_art=excluded.has_album_art",
+           hash=excluded.hash, has_album_art=excluded.has_album_art, bitrate=excluded.bitrate",
         params![
             track.file_path,
             track.relative_path,
@@ -35,6 +35,7 @@ pub fn upsert_track(conn: &Connection, track: &Track) -> Result<(), AppError> {
             track.modified_at,
             track.hash,
             track.has_album_art,
+            track.bitrate,
         ],
     )?;
     Ok(())
@@ -135,7 +136,7 @@ pub fn get_track_fingerprints(
 pub fn get_library_tree(conn: &Connection, library_root: &str) -> Result<LibraryTree, AppError> {
     let mut stmt = conn.prepare(
         "SELECT id, file_path, relative_path, library_root, title, artist, album_artist, album,
-         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art
+         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate
          FROM tracks WHERE library_root = ?1
          ORDER BY COALESCE(album_artist, artist) COLLATE NOCASE,
                   album COLLATE NOCASE,
@@ -164,6 +165,7 @@ pub fn get_library_tree(conn: &Connection, library_root: &str) -> Result<Library
                 modified_at: row.get(15)?,
                 hash: row.get(16)?,
                 has_album_art: row.get(17)?,
+                bitrate: row.get(18)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -251,7 +253,7 @@ pub fn get_tracks_by_artists(
         .collect();
     let sql = format!(
         "SELECT id, file_path, relative_path, library_root, title, artist, album_artist, album,
-         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art
+         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate
          FROM tracks
          WHERE library_root = ?1
            AND COALESCE(album_artist, artist, 'Unknown Artist') IN ({})
@@ -289,6 +291,7 @@ pub fn get_tracks_by_artists(
                 modified_at: row.get(15)?,
                 hash: row.get(16)?,
                 has_album_art: row.get(17)?,
+                bitrate: row.get(18)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -299,7 +302,7 @@ pub fn search_tracks(conn: &Connection, query: &str) -> Result<Vec<Track>, AppEr
     let pattern = format!("%{}%", query);
     let mut stmt = conn.prepare(
         "SELECT id, file_path, relative_path, library_root, title, artist, album_artist, album,
-         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art
+         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate
          FROM tracks
          WHERE title LIKE ?1 OR artist LIKE ?1 OR album LIKE ?1 OR album_artist LIKE ?1
          ORDER BY artist COLLATE NOCASE, album COLLATE NOCASE, track_number
@@ -327,6 +330,7 @@ pub fn search_tracks(conn: &Connection, query: &str) -> Result<Vec<Track>, AppEr
                 modified_at: row.get(15)?,
                 hash: row.get(16)?,
                 has_album_art: row.get(17)?,
+                bitrate: row.get(18)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -360,7 +364,7 @@ pub fn get_tracks_by_albums(
 
     let sql = format!(
         "SELECT id, file_path, relative_path, library_root, title, artist, album_artist, album,
-         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art
+         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate
          FROM tracks
          WHERE library_root = ?1
            AND ({})
@@ -393,6 +397,7 @@ pub fn get_tracks_by_albums(
                 modified_at: row.get(15)?,
                 hash: row.get(16)?,
                 has_album_art: row.get(17)?,
+                bitrate: row.get(18)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -415,7 +420,7 @@ pub fn get_tracks_for_device(
     let mut idx = 1;
 
     let select_cols = "id, file_path, relative_path, library_root, title, artist, album_artist, album,
-         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art";
+         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate";
 
     if !artist_names.is_empty() {
         let lib_param = format!("?{}", idx);
@@ -489,6 +494,7 @@ pub fn get_tracks_for_device(
                 modified_at: row.get(15)?,
                 hash: row.get(16)?,
                 has_album_art: row.get(17)?,
+                bitrate: row.get(18)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
@@ -527,7 +533,7 @@ pub fn get_incomplete_tracks(
 ) -> Result<Vec<Track>, AppError> {
     let mut stmt = conn.prepare(
         "SELECT id, file_path, relative_path, library_root, title, artist, album_artist, album,
-         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art
+         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate
          FROM tracks
          WHERE library_root = ?1
            AND (title IS NULL OR artist IS NULL OR album IS NULL OR has_album_art = 0)
@@ -555,9 +561,223 @@ pub fn get_incomplete_tracks(
                 modified_at: row.get(15)?,
                 hash: row.get(16)?,
                 has_album_art: row.get(17)?,
+                bitrate: row.get(18)?,
             })
         })?
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(tracks)
+}
+
+pub fn get_library_stats(conn: &Connection, library_root: &str) -> Result<LibraryStats, AppError> {
+    // Summary row
+    let (total_tracks, total_size, total_duration, avg_bitrate): (usize, u64, f64, Option<f64>) =
+        conn.query_row(
+            "SELECT COUNT(*), COALESCE(SUM(file_size), 0), COALESCE(SUM(duration_secs), 0.0),
+                    AVG(bitrate)
+             FROM tracks WHERE library_root = ?1",
+            params![library_root],
+            |row| Ok((
+                row.get::<_, i64>(0)? as usize,
+                row.get::<_, i64>(1)? as u64,
+                row.get::<_, f64>(2)?,
+                row.get::<_, Option<f64>>(3)?,
+            )),
+        )?;
+
+    let total_artists: usize = conn.query_row(
+        "SELECT COUNT(DISTINCT COALESCE(album_artist, artist, 'Unknown Artist'))
+         FROM tracks WHERE library_root = ?1",
+        params![library_root],
+        |row| row.get::<_, i64>(0).map(|v| v as usize),
+    )?;
+
+    let total_albums: usize = conn.query_row(
+        "SELECT COUNT(DISTINCT COALESCE(album, 'Unknown Album'))
+         FROM tracks WHERE library_root = ?1",
+        params![library_root],
+        |row| row.get::<_, i64>(0).map(|v| v as usize),
+    )?;
+
+    // Format breakdown
+    let mut fmt_stmt = conn.prepare(
+        "SELECT format, COUNT(*), COALESCE(SUM(file_size), 0)
+         FROM tracks WHERE library_root = ?1
+         GROUP BY format ORDER BY COUNT(*) DESC",
+    )?;
+    let formats = fmt_stmt
+        .query_map(params![library_root], |row| {
+            Ok(FormatStat {
+                format: row.get(0)?,
+                count: row.get::<_, i64>(1)? as usize,
+                total_size: row.get::<_, i64>(2)? as u64,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    // Genre breakdown
+    let mut genre_stmt = conn.prepare(
+        "SELECT COALESCE(genre, 'Unknown'), COUNT(*)
+         FROM tracks WHERE library_root = ?1
+         GROUP BY COALESCE(genre, 'Unknown') ORDER BY COUNT(*) DESC",
+    )?;
+    let genres = genre_stmt
+        .query_map(params![library_root], |row| {
+            Ok(GenreStat {
+                genre: row.get(0)?,
+                count: row.get::<_, i64>(1)? as usize,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    Ok(LibraryStats {
+        total_tracks,
+        total_artists,
+        total_albums,
+        total_size,
+        total_duration_secs: total_duration,
+        avg_bitrate,
+        formats,
+        genres,
+    })
+}
+
+#[cfg(test)]
+mod stats_tests {
+    use super::*;
+    use crate::db::schema;
+
+    fn setup_db() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::run_migrations(&conn).unwrap();
+        conn
+    }
+
+    fn make_track(
+        artist: &str, album: &str, format: &str, genre: &str,
+        size: u64, duration: f64, bitrate: Option<u32>,
+        file_suffix: &str,
+    ) -> Track {
+        Track {
+            id: None,
+            file_path: format!("/music/{}/{}/{}.{}", artist, album, file_suffix, format),
+            relative_path: format!("{}/{}/{}.{}", artist, album, file_suffix, format),
+            library_root: "/music".to_string(),
+            title: Some("Track".to_string()),
+            artist: Some(artist.to_string()),
+            album_artist: None,
+            album: Some(album.to_string()),
+            track_number: Some(1),
+            disc_number: Some(1),
+            year: Some(2024),
+            genre: Some(genre.to_string()),
+            duration_secs: Some(duration),
+            format: format.to_string(),
+            file_size: size,
+            modified_at: 1700000000,
+            hash: None,
+            has_album_art: false,
+            bitrate,
+        }
+    }
+
+    #[test]
+    fn test_empty_library_stats() {
+        let conn = setup_db();
+        let stats = get_library_stats(&conn, "/music").unwrap();
+        assert_eq!(stats.total_tracks, 0);
+        assert_eq!(stats.total_artists, 0);
+        assert_eq!(stats.total_albums, 0);
+        assert_eq!(stats.total_size, 0);
+        assert_eq!(stats.total_duration_secs, 0.0);
+        assert!(stats.avg_bitrate.is_none());
+        assert!(stats.formats.is_empty());
+        assert!(stats.genres.is_empty());
+    }
+
+    #[test]
+    fn test_stats_counts_and_totals() {
+        let conn = setup_db();
+        upsert_track(&conn, &make_track("ArtistA", "Album1", "flac", "Rock", 50_000_000, 300.0, Some(1411), "t1")).unwrap();
+        upsert_track(&conn, &make_track("ArtistA", "Album1", "flac", "Rock", 48_000_000, 280.0, Some(1411), "t2")).unwrap();
+        upsert_track(&conn, &make_track("ArtistB", "Album2", "mp3", "Jazz", 8_000_000, 240.0, Some(320), "t3")).unwrap();
+
+        let stats = get_library_stats(&conn, "/music").unwrap();
+        assert_eq!(stats.total_tracks, 3);
+        assert_eq!(stats.total_artists, 2);
+        assert_eq!(stats.total_albums, 2);
+        assert_eq!(stats.total_size, 106_000_000);
+        assert!((stats.total_duration_secs - 820.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_stats_format_breakdown() {
+        let conn = setup_db();
+        upsert_track(&conn, &make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, None, "t1")).unwrap();
+        upsert_track(&conn, &make_track("A", "A1", "flac", "Rock", 48_000_000, 280.0, None, "t2")).unwrap();
+        upsert_track(&conn, &make_track("B", "B1", "mp3", "Jazz", 8_000_000, 240.0, None, "t3")).unwrap();
+
+        let stats = get_library_stats(&conn, "/music").unwrap();
+        assert_eq!(stats.formats.len(), 2);
+        assert_eq!(stats.formats[0].format, "flac");
+        assert_eq!(stats.formats[0].count, 2);
+        assert_eq!(stats.formats[1].format, "mp3");
+        assert_eq!(stats.formats[1].count, 1);
+    }
+
+    #[test]
+    fn test_stats_genre_breakdown() {
+        let conn = setup_db();
+        upsert_track(&conn, &make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, None, "t1")).unwrap();
+        upsert_track(&conn, &make_track("B", "B1", "mp3", "Rock", 8_000_000, 240.0, None, "t2")).unwrap();
+        upsert_track(&conn, &make_track("C", "C1", "flac", "Jazz", 45_000_000, 300.0, None, "t3")).unwrap();
+
+        let stats = get_library_stats(&conn, "/music").unwrap();
+        assert_eq!(stats.genres.len(), 2);
+        assert_eq!(stats.genres[0].genre, "Rock");
+        assert_eq!(stats.genres[0].count, 2);
+        assert_eq!(stats.genres[1].genre, "Jazz");
+        assert_eq!(stats.genres[1].count, 1);
+    }
+
+    #[test]
+    fn test_stats_avg_bitrate() {
+        let conn = setup_db();
+        upsert_track(&conn, &make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, Some(1411), "t1")).unwrap();
+        upsert_track(&conn, &make_track("B", "B1", "mp3", "Jazz", 8_000_000, 240.0, Some(320), "t2")).unwrap();
+
+        let stats = get_library_stats(&conn, "/music").unwrap();
+        let avg = stats.avg_bitrate.unwrap();
+        assert!((avg - 865.5).abs() < 1.0); // (1411 + 320) / 2
+    }
+
+    #[test]
+    fn test_stats_avg_bitrate_with_nulls() {
+        let conn = setup_db();
+        upsert_track(&conn, &make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, Some(1000), "t1")).unwrap();
+        upsert_track(&conn, &make_track("B", "B1", "mp3", "Jazz", 8_000_000, 240.0, None, "t2")).unwrap();
+
+        let stats = get_library_stats(&conn, "/music").unwrap();
+        // AVG ignores NULLs in SQLite, so only the 1000 is counted
+        let avg = stats.avg_bitrate.unwrap();
+        assert!((avg - 1000.0).abs() < 1.0);
+    }
+
+    #[test]
+    fn test_stats_scoped_to_library_root() {
+        let conn = setup_db();
+        upsert_track(&conn, &make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, None, "t1")).unwrap();
+        upsert_track(&conn, &{
+            let mut t = make_track("B", "B1", "mp3", "Jazz", 8_000_000, 240.0, None, "t2");
+            t.file_path = "/other/B/B1/t2.mp3".to_string();
+            t.relative_path = "B/B1/t2.mp3".to_string();
+            t.library_root = "/other".to_string();
+            t
+        }).unwrap();
+
+        let stats = get_library_stats(&conn, "/music").unwrap();
+        assert_eq!(stats.total_tracks, 1);
+        assert_eq!(stats.total_artists, 1);
+        assert_eq!(stats.formats.len(), 1);
+    }
 }

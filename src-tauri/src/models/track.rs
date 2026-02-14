@@ -20,6 +20,7 @@ pub struct Track {
     pub modified_at: i64,
     pub hash: Option<String>,
     pub has_album_art: bool,
+    pub bitrate: Option<u32>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -63,6 +64,31 @@ pub struct TrackMetadataUpdate {
 pub struct AlbumArt {
     pub data: String,
     pub mime_type: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FormatStat {
+    pub format: String,
+    pub count: usize,
+    pub total_size: u64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GenreStat {
+    pub genre: String,
+    pub count: usize,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LibraryStats {
+    pub total_tracks: usize,
+    pub total_artists: usize,
+    pub total_albums: usize,
+    pub total_size: u64,
+    pub total_duration_secs: f64,
+    pub avg_bitrate: Option<f64>,
+    pub formats: Vec<FormatStat>,
+    pub genres: Vec<GenreStat>,
 }
 
 pub fn is_audio_file(path: &std::path::Path) -> bool {

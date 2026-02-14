@@ -6,12 +6,13 @@
   import SyncPreview from "./pages/SyncPreview.svelte";
   import DeviceSync from "./pages/DeviceSync.svelte";
   import Settings from "./pages/Settings.svelte";
+  import Statistics from "./pages/Statistics.svelte";
   import GlobalStatusBar from "./lib/components/GlobalStatusBar.svelte";
   import NowPlayingBar from "./lib/components/NowPlayingBar.svelte";
   import { libraryStore } from "./lib/stores/library.svelte";
   import { playerStore } from "./lib/stores/player.svelte";
 
-  type Page = "library" | "profiles" | "sync-preview" | "devices" | "settings";
+  type Page = "library" | "statistics" | "profiles" | "sync-preview" | "devices" | "settings";
 
   let currentPage = $state<Page>("library");
   let pageData = $state<Record<string, unknown>>({});
@@ -25,6 +26,7 @@
 
   const navItems: { page: Page; label: string }[] = [
     { page: "library", label: "Library" },
+    { page: "statistics", label: "Statistics" },
     { page: "profiles", label: "Sync Profiles" },
     { page: "devices", label: "Devices" },
     { page: "settings", label: "Settings" },
@@ -50,6 +52,8 @@
     <main class="content">
     {#if currentPage === "library"}
       <Library />
+    {:else if currentPage === "statistics"}
+      <Statistics />
     {:else if currentPage === "profiles"}
       <SyncProfiles onNavigate={navigate} />
     {:else if currentPage === "sync-preview"}
