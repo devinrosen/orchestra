@@ -19,7 +19,7 @@ Statuses: `[ ]` not started · `[designed]` plan exists · `[implemented]` code 
 - [done] **Song and album metadata viewer/editor** — View and edit metadata (title, artist, album artist, album, track number, disc number, year, genre, album art) for individual tracks or in bulk for an album. Changes should write back to the audio files via lofty and update the database.
 - [done] **Shared track row component** — Extract the duplicated track row markup (play button, track number, title, duration, format, size) from TreeView, AlbumListView, GenreTreeView, and FolderTreeView into a reusable `TrackRow.svelte` component.
 - [ ] **Keyboard shortcuts** — Navigate the library tree, trigger scan/sync, and open editors without using the mouse. Configurable key bindings.
-- [ ] **UI skins (light/dark mode)** — Support light and dark color themes with a toggle in Settings. Respect the OS-level appearance preference by default, with an option to override. Implement via CSS custom properties so all components inherit the active theme. Persist the user's choice across restarts.
+- [done] **UI skins (light/dark mode)** — Support light and dark color themes with a toggle in Settings. Respect the OS-level appearance preference by default, with an option to override. Implement via CSS custom properties so all components inherit the active theme. Persist the user's choice across restarts.
 
 ## Playback
 

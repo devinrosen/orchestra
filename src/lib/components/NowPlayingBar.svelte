@@ -208,7 +208,7 @@
     width: 36px;
     height: 36px;
     background: var(--accent);
-    color: white;
+    color: var(--on-accent);
   }
 
   .play-btn:hover {
@@ -298,7 +298,7 @@
     display: flex;
     align-items: center;
     gap: 4px;
-    background: rgba(240, 165, 0, 0.15);
+    background: var(--warning-tint-strong);
     padding: 4px 10px;
     border-radius: var(--radius);
     flex-shrink: 0;

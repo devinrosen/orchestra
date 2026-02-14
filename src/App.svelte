@@ -13,6 +13,7 @@
   import { libraryStore } from "./lib/stores/library.svelte";
   import { playerStore } from "./lib/stores/player.svelte";
   import { playlistStore } from "./lib/stores/playlist.svelte";
+  import { themeStore } from "./lib/stores/theme.svelte";
 
   type Page = "library" | "statistics" | "playlists" | "profiles" | "sync-preview" | "devices" | "settings";
 
@@ -22,6 +23,11 @@
   onMount(() => {
     libraryStore.init();
     playlistStore.load();
+    themeStore.init();
+  });
+
+  $effect(() => {
+    document.documentElement.setAttribute("data-theme", themeStore.resolved);
   });
 
   function navigate(page: string, data?: Record<string, unknown>) {

@@ -148,7 +148,7 @@
   .report-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: var(--overlay-bg);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -196,7 +196,7 @@
   }
 
   .error-banner {
-    background: rgba(233, 69, 96, 0.15);
+    background: var(--accent-tint-strong);
     color: var(--danger);
     padding: 8px 12px;
     border-radius: var(--radius);
@@ -234,7 +234,7 @@
 
   .filter-btn.active {
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
     border-color: var(--accent);
   }
 
@@ -291,23 +291,23 @@
   }
 
   .badge-title {
-    background: rgba(233, 69, 96, 0.15);
-    color: #e94560;
+    background: var(--accent-tint-strong);
+    color: var(--danger);
   }
 
   .badge-artist {
-    background: rgba(255, 165, 0, 0.15);
-    color: #ffa500;
+    background: var(--orange-tint);
+    color: var(--orange-color);
   }
 
   .badge-album {
-    background: rgba(100, 149, 237, 0.15);
-    color: #6495ed;
+    background: var(--info-tint);
+    color: var(--info-color);
   }
 
   .badge-artwork {
-    background: rgba(147, 112, 219, 0.15);
-    color: #9370db;
+    background: var(--purple-tint);
+    color: var(--purple-color);
   }
 
   .edit-btn {

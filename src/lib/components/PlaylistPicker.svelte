@@ -79,7 +79,7 @@
     max-height: 360px;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--overlay-shadow);
   }
 
   .picker-header {
@@ -132,7 +132,7 @@
   .picker-create-btn {
     padding: 6px 10px;
     background: var(--accent);
-    color: white;
+    color: var(--on-accent);
     border: none;
     border-radius: var(--radius);
     font-size: 14px;

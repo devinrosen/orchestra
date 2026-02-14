@@ -118,6 +118,6 @@
   }
 
   .danger-btn:hover {
-    background: rgba(233, 69, 96, 0.1);
+    background: var(--accent-tint);
   }
 </style>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import * as commands from "../lib/api/commands";
+  import { themeStore, type ThemePreference } from "../lib/stores/theme.svelte";
 
   let settings = $state<Record<string, string>>({});
   let loading = $state(true);
@@ -35,6 +36,25 @@
   {#if loading}
     <p>Loading settings...</p>
   {:else}
+    <div class="settings-group">
+      <h3>Appearance</h3>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <label>Theme</label>
+          <p class="setting-desc">Choose light or dark mode, or follow the OS setting</p>
+        </div>
+        <select
+          value={themeStore.preference}
+          onchange={(e) => themeStore.setPreference((e.target as HTMLSelectElement).value as ThemePreference)}
+        >
+          <option value="system">System</option>
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+        </select>
+      </div>
+    </div>
+
     <div class="settings-group">
       <h3>General</h3>
 

@@ -58,7 +58,7 @@
   }
 
   .track-row.now-playing {
-    background-color: rgba(233, 69, 96, 0.1);
+    background-color: var(--accent-tint);
   }
 
   .track-row.now-playing .track-title {

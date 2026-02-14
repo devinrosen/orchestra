@@ -355,7 +355,7 @@
   }
 
   .error-banner {
-    background: rgba(233, 69, 96, 0.1);
+    background: var(--accent-tint);
     color: var(--danger);
     padding: 10px 14px;
     border-radius: var(--radius);
@@ -425,7 +425,7 @@
   .register-dialog-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: var(--overlay-bg);
     display: flex;
     align-items: center;
     justify-content: center;

@@ -135,7 +135,7 @@
   .editor-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: var(--overlay-bg);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -190,7 +190,7 @@
   }
 
   .error-banner {
-    background: rgba(233, 69, 96, 0.15);
+    background: var(--accent-tint-strong);
     color: var(--danger);
     padding: 8px 12px;
     border-radius: var(--radius);

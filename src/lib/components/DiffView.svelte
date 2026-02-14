@@ -98,10 +98,10 @@
     border-radius: var(--radius);
   }
 
-  .stat.add { color: var(--success); background: rgba(78, 204, 163, 0.1); }
-  .stat.remove { color: var(--danger); background: rgba(233, 69, 96, 0.1); }
-  .stat.update { color: var(--warning); background: rgba(240, 165, 0, 0.1); }
-  .stat.conflict { color: #ff6b6b; background: rgba(255, 107, 107, 0.1); }
+  .stat.add { color: var(--success); background: var(--success-tint); }
+  .stat.remove { color: var(--danger); background: var(--accent-tint); }
+  .stat.update { color: var(--warning); background: var(--warning-tint); }
+  .stat.conflict { color: var(--conflict-color); background: var(--conflict-tint); }
   .stat.transfer { color: var(--text-secondary); background: var(--bg-secondary); }
 
   .diff-filters {
@@ -145,7 +145,7 @@
   .diff-entry.action-add { border-left-color: var(--success); }
   .diff-entry.action-remove { border-left-color: var(--danger); }
   .diff-entry.action-update { border-left-color: var(--warning); }
-  .diff-entry.action-conflict { border-left-color: #ff6b6b; }
+  .diff-entry.action-conflict { border-left-color: var(--conflict-color); }
 
   .diff-icon {
     font-weight: 700;
@@ -157,7 +157,7 @@
   .action-add .diff-icon { color: var(--success); }
   .action-remove .diff-icon { color: var(--danger); }
   .action-update .diff-icon { color: var(--warning); }
-  .action-conflict .diff-icon { color: #ff6b6b; }
+  .action-conflict .diff-icon { color: var(--conflict-color); }
 
   .diff-path {
     flex: 1;
