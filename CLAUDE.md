@@ -70,6 +70,9 @@ TypeScript types in `src/lib/api/types.ts` mirror Rust structs exactly.
 - `AppError` serializes to string for frontend consumption
 - Artist grouping uses `COALESCE(album_artist, artist, 'Unknown Artist')` — this is the canonical SQL pattern for display-artist across all queries
 - `tauri::Manager` trait must be imported when using `app.path()` or `app.manage()`
+- **Svelte 5 prop-to-local-state pattern**: When a component needs an editable local copy of a prop, use `// svelte-ignore state_referenced_locally` above `let x = $state(prop.field)`. This is the correct Svelte 5 approach — intermediate-const workarounds do not work. Add the comment once per group of initializations. See `MetadataEditor.svelte` for the canonical example.
+- **No hardcoded colors in components**: All colors in `.svelte` `<style>` blocks must use CSS custom properties from `src/app.css` (e.g., `var(--bg-primary)`, `var(--accent)`, `var(--border)`). Never introduce raw hex (`#fff`), `rgb()`, or `rgba()` values — use or extend the theme variables in `app.css` instead. This ensures UI skins/themes work correctly.
+- **File deletion is permanent** (`std::fs::remove_file`): Sync operations delete files permanently because the source copy still exists. For user-initiated destructive operations (e.g., duplicate deletion), permanent deletion is acceptable when behind an explicit confirm dialog. If a future feature deletes files where no other copy exists, consider adding the `trash` crate for OS trash-bin support.
 
 ## Memory
 

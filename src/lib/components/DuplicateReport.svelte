@@ -239,7 +239,7 @@
   .report-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.6);
+    background: var(--overlay-bg);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -287,7 +287,7 @@
   }
 
   .error-banner {
-    background: rgba(233, 69, 96, 0.15);
+    background: var(--accent-tint-strong);
     color: var(--danger);
     padding: 8px 12px;
     border-radius: var(--radius);
@@ -325,7 +325,7 @@
 
   .filter-btn.active {
     background: var(--accent);
-    color: #fff;
+    color: var(--on-accent);
     border-color: var(--accent);
   }
 
@@ -359,13 +359,13 @@
   }
 
   .badge-content_hash {
-    background: rgba(76, 175, 80, 0.15);
-    color: #4caf50;
+    background: var(--success-tint);
+    color: var(--success);
   }
 
   .badge-metadata_similarity {
-    background: rgba(100, 149, 237, 0.15);
-    color: #6495ed;
+    background: var(--info-tint);
+    color: var(--info-color);
   }
 
   .group-count {
@@ -406,7 +406,7 @@
   }
 
   .track-row:hover {
-    background: var(--bg-tertiary, rgba(255, 255, 255, 0.05));
+    background: var(--bg-tertiary);
   }
 
   .track-info {
@@ -438,8 +438,8 @@
     border-radius: 8px;
     font-weight: 500;
     text-transform: uppercase;
-    background: rgba(255, 165, 0, 0.15);
-    color: #ffa500;
+    background: var(--orange-tint);
+    color: var(--orange-color);
   }
 
   .meta-detail {
@@ -461,8 +461,8 @@
   }
 
   .danger-btn {
-    background: var(--danger, #e94560);
-    border-color: var(--danger, #e94560);
+    background: var(--danger);
+    border-color: var(--danger);
   }
 
   .danger-btn:disabled {
