@@ -272,7 +272,7 @@
   }
 
   .error-banner {
-    background: rgba(233, 69, 96, 0.15);
+    background: var(--accent-tint-strong);
     color: var(--danger);
     padding: 8px 12px;
     border-radius: var(--radius);
@@ -360,8 +360,8 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: var(--danger, #e94560);
-    color: #fff;
+    background: var(--danger);
+    color: var(--on-accent);
     font-size: 10px;
     font-weight: 600;
     min-width: 18px;

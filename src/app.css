@@ -1,4 +1,5 @@
-:root {
+:root,
+[data-theme="dark"] {
   --bg-primary: #1a1a2e;
   --bg-secondary: #16213e;
   --bg-tertiary: #0f3460;
@@ -12,6 +13,64 @@
   --border: #2a2a4a;
   --radius: 6px;
   --shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --accent-tint: rgba(233, 69, 96, 0.1);
+  --accent-tint-strong: rgba(233, 69, 96, 0.15);
+  --success-tint: rgba(78, 204, 163, 0.1);
+  --success-tint-subtle: rgba(78, 204, 163, 0.04);
+  --success-tint-medium: rgba(78, 204, 163, 0.06);
+  --success-tint-strong: rgba(78, 204, 163, 0.08);
+  --warning-tint: rgba(240, 165, 0, 0.1);
+  --warning-tint-strong: rgba(240, 165, 0, 0.15);
+  --conflict-color: #ff6b6b;
+  --conflict-tint: rgba(255, 107, 107, 0.1);
+  --conflict-tint-strong: rgba(255, 107, 107, 0.15);
+  --info-color: #6495ed;
+  --info-tint: rgba(100, 149, 237, 0.15);
+  --purple-color: #9370db;
+  --purple-tint: rgba(147, 112, 219, 0.15);
+  --orange-color: #ffa500;
+  --orange-tint: rgba(255, 165, 0, 0.15);
+  --overlay-bg: rgba(0, 0, 0, 0.6);
+  --overlay-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  --secondary-hover: #1a4a80;
+  --on-accent: white;
+}
+
+[data-theme="light"] {
+  --bg-primary: #f5f5f7;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #e8e8ed;
+  --text-primary: #1d1d1f;
+  --text-secondary: #6e6e73;
+  --accent: #d63250;
+  --accent-hover: #c02040;
+  --success: #34a853;
+  --warning: #e08600;
+  --danger: #d63250;
+  --border: #d2d2d7;
+  --radius: 6px;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --accent-tint: rgba(214, 50, 80, 0.08);
+  --accent-tint-strong: rgba(214, 50, 80, 0.12);
+  --success-tint: rgba(52, 168, 83, 0.08);
+  --success-tint-subtle: rgba(52, 168, 83, 0.04);
+  --success-tint-medium: rgba(52, 168, 83, 0.06);
+  --success-tint-strong: rgba(52, 168, 83, 0.08);
+  --warning-tint: rgba(224, 134, 0, 0.08);
+  --warning-tint-strong: rgba(224, 134, 0, 0.12);
+  --conflict-color: #e53935;
+  --conflict-tint: rgba(229, 57, 53, 0.08);
+  --conflict-tint-strong: rgba(229, 57, 53, 0.12);
+  --info-color: #4285f4;
+  --info-tint: rgba(66, 133, 244, 0.12);
+  --purple-color: #7b1fa2;
+  --purple-tint: rgba(123, 31, 162, 0.12);
+  --orange-color: #e65100;
+  --orange-tint: rgba(230, 81, 0, 0.12);
+  --overlay-bg: rgba(0, 0, 0, 0.4);
+  --overlay-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  --secondary-hover: #d8d8de;
+  --on-accent: white;
 }
 
 * {
@@ -52,7 +111,7 @@ button:disabled {
 
 button.primary {
   background-color: var(--accent);
-  color: white;
+  color: var(--on-accent);
 }
 
 button.primary:hover:not(:disabled) {
@@ -65,7 +124,7 @@ button.secondary {
 }
 
 button.secondary:hover:not(:disabled) {
-  background-color: #1a4a80;
+  background-color: var(--secondary-hover);
 }
 
 input, select {

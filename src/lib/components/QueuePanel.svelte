@@ -117,7 +117,7 @@
     width: 100%;
     height: 100%;
     z-index: 150;
-    background: rgba(0, 0, 0, 0.3);
+    background: var(--overlay-bg);
   }
 
   .queue-panel {
@@ -131,7 +131,7 @@
     border-radius: var(--radius);
     display: flex;
     flex-direction: column;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--overlay-shadow);
   }
 
   .queue-header {

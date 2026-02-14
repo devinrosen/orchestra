@@ -316,7 +316,7 @@
   }
 
   .artist-group.has-selection {
-    background: rgba(78, 204, 163, 0.04);
+    background: var(--success-tint-subtle);
     border-radius: var(--radius);
   }
 
@@ -364,7 +364,7 @@
   }
 
   .artist-label.selected {
-    background: rgba(78, 204, 163, 0.08);
+    background: var(--success-tint-strong);
   }
 
   .artist-label input[type="checkbox"],
@@ -415,7 +415,7 @@
   }
 
   .album-row.selected {
-    background: rgba(78, 204, 163, 0.06);
+    background: var(--success-tint-medium);
   }
 
   .album-row input[type="checkbox"]:disabled {

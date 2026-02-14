@@ -71,7 +71,7 @@
 <style>
   .conflict-card {
     background: var(--bg-secondary);
-    border: 1px solid #ff6b6b33;
+    border: 1px solid var(--conflict-tint);
     border-radius: var(--radius);
     padding: 12px;
     display: flex;
@@ -97,8 +97,8 @@
     font-size: 11px;
     padding: 2px 8px;
     border-radius: 12px;
-    background: rgba(255, 107, 107, 0.15);
-    color: #ff6b6b;
+    background: var(--conflict-tint-strong);
+    color: var(--conflict-color);
     flex-shrink: 0;
   }
 
@@ -142,7 +142,7 @@
 
   .resolution-options button.active {
     background: var(--accent);
-    color: white;
+    color: var(--on-accent);
     border-color: var(--accent);
   }
 </style>
