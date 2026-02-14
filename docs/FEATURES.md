@@ -11,6 +11,7 @@ Statuses: `[ ]` not started · `[designed]` plan exists · `[implemented]` code 
 - [ ] **File organization/renaming** — Auto-rename and move files into a folder structure based on metadata patterns (e.g. `Artist/Album/01 - Title.flac`) with a preview before applying.
 - [done] **Multiple library view modes** — In addition to the current Artist > Album > Track tree, support alternative browse modes: by Album, by Genre, and by Folder. A segmented toggle at the top of the library view switches between modes. Preference persists across restarts. Folder view includes a play button to queue all tracks in a folder.
 - [done] **Library statistics** — Dashboard showing format breakdown, genre distribution, total library size, number of artists/albums/tracks, and average bitrate.
+- [ ] **Contextual library search** — Make the search bar filter contextually based on the active view mode. In Artist view, search matches artists and shows them with their albums still expandable. In Album view, search matches albums with tracks still expandable. In Genre view, search matches genres. In Folder view, search matches folder names. The current search only filters individual tracks — this would filter at the top-level grouping instead, preserving the tree structure beneath matches.
 
 ## UI / UX
 
@@ -23,6 +24,7 @@ Statuses: `[ ]` not started · `[designed]` plan exists · `[implemented]` code 
 
 - [done] **Play music by song or album** — Add audio playback support so users can play individual tracks or full albums directly from the library view.
 - [done] **Playlist support** — Create, manage, and reorder playlists within the app, with export to M3U/PLS formats for use in other players.
+- [ ] **Play queue viewer** — Add a button in the player bar to open a panel showing the current play queue (upcoming songs, current track highlighted). Works when playing an album or a playlist. Users can see what's coming next, skip ahead by clicking a track, and reorder or remove items from the queue.
 
 ## Device Sync
 
