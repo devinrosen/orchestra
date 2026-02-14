@@ -3,6 +3,7 @@ use rusqlite::{params, Connection};
 
 use crate::error::AppError;
 use crate::models::device::{AlbumSelection, AlbumSummary, ArtistSummary};
+use crate::models::duplicate::{DuplicateGroup, DuplicateMatchType};
 use crate::models::track::{AlbumNode, ArtistNode, FormatStat, GenreStat, LibraryStats, LibraryTree, Track};
 
 /// Maps a row from a SELECT that returns all 19 Track columns (id first) to a Track struct.
@@ -454,44 +455,188 @@ pub fn get_library_stats(conn: &Connection, library_root: &str) -> Result<Librar
     })
 }
 
+pub fn find_hash_duplicates(
+    conn: &Connection,
+    library_root: &str,
+) -> Result<Vec<DuplicateGroup>, AppError> {
+    // Step 1: Find hashes that appear more than once
+    let mut hash_stmt = conn.prepare(
+        "SELECT hash, COUNT(*) as cnt
+         FROM tracks
+         WHERE library_root = ?1 AND hash IS NOT NULL
+         GROUP BY hash
+         HAVING cnt > 1
+         ORDER BY cnt DESC",
+    )?;
+    let dup_hashes: Vec<String> = hash_stmt
+        .query_map(params![library_root], |row| row.get::<_, String>(0))?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    // Step 2: For each hash, fetch the full tracks
+    let mut groups = Vec::new();
+    for hash in dup_hashes {
+        let mut track_stmt = conn.prepare(
+            "SELECT id, file_path, relative_path, library_root, title, artist, album_artist, album,
+             track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate
+             FROM tracks
+             WHERE library_root = ?1 AND hash = ?2
+             ORDER BY file_path",
+        )?;
+        let tracks = track_stmt
+            .query_map(params![library_root, hash], track_from_row)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        groups.push(DuplicateGroup {
+            match_type: DuplicateMatchType::ContentHash,
+            match_key: hash,
+            tracks,
+        });
+    }
+
+    Ok(groups)
+}
+
+pub fn find_metadata_duplicates(
+    conn: &Connection,
+    library_root: &str,
+) -> Result<Vec<DuplicateGroup>, AppError> {
+    // Group by lowercase title + artist + duration rounded to nearest second
+    let mut stmt = conn.prepare(
+        "SELECT LOWER(title) as lt, LOWER(COALESCE(artist, '')), CAST(ROUND(duration_secs) AS INTEGER) as dur,
+                COUNT(*) as cnt
+         FROM tracks
+         WHERE library_root = ?1 AND title IS NOT NULL
+         GROUP BY lt, LOWER(COALESCE(artist, '')), dur
+         HAVING cnt > 1
+         ORDER BY cnt DESC",
+    )?;
+    let keys: Vec<(String, String, i64)> = stmt
+        .query_map(params![library_root], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, i64>(2)?,
+            ))
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let mut groups = Vec::new();
+    for (title, artist, dur) in keys {
+        let mut track_stmt = conn.prepare(
+            "SELECT id, file_path, relative_path, library_root, title, artist, album_artist, album,
+             track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate
+             FROM tracks
+             WHERE library_root = ?1
+               AND LOWER(title) = ?2
+               AND LOWER(COALESCE(artist, '')) = ?3
+               AND CAST(ROUND(duration_secs) AS INTEGER) = ?4
+             ORDER BY file_path",
+        )?;
+        let tracks = track_stmt
+            .query_map(params![library_root, title, artist, dur], track_from_row)?
+            .collect::<Result<Vec<_>, _>>()?;
+
+        // Skip groups that are entirely the same hash (already covered by content match)
+        let all_same_hash = tracks.len() > 1
+            && tracks[0].hash.is_some()
+            && tracks.iter().all(|t| t.hash == tracks[0].hash);
+        if all_same_hash {
+            continue;
+        }
+
+        let match_key = format!("{}|{}|{}", title, artist, dur);
+        groups.push(DuplicateGroup {
+            match_type: DuplicateMatchType::MetadataSimilarity,
+            match_key,
+            tracks,
+        });
+    }
+
+    Ok(groups)
+}
+
+pub fn get_tracks_without_hash(
+    conn: &Connection,
+    library_root: &str,
+) -> Result<Vec<(i64, String)>, AppError> {
+    let mut stmt = conn.prepare(
+        "SELECT id, file_path FROM tracks WHERE library_root = ?1 AND hash IS NULL",
+    )?;
+    let rows = stmt
+        .query_map(params![library_root], |row| {
+            Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
+pub fn update_track_hash(conn: &Connection, track_id: i64, hash: &str) -> Result<(), AppError> {
+    conn.execute(
+        "UPDATE tracks SET hash = ?1 WHERE id = ?2",
+        params![hash, track_id],
+    )?;
+    Ok(())
+}
+
+pub fn delete_tracks_by_ids(conn: &Connection, ids: &[i64]) -> Result<usize, AppError> {
+    if ids.is_empty() {
+        return Ok(0);
+    }
+    let placeholders: Vec<String> = (0..ids.len()).map(|i| format!("?{}", i + 1)).collect();
+    let sql = format!(
+        "DELETE FROM tracks WHERE id IN ({})",
+        placeholders.join(",")
+    );
+    let param_values: Vec<Box<dyn rusqlite::types::ToSql>> = ids
+        .iter()
+        .map(|id| Box::new(*id) as Box<dyn rusqlite::types::ToSql>)
+        .collect();
+    let params_ref: Vec<&dyn rusqlite::types::ToSql> =
+        param_values.iter().map(|p| p.as_ref()).collect();
+    let deleted = conn.execute(&sql, params_ref.as_slice())?;
+    Ok(deleted)
+}
+
+#[cfg(test)]
+fn setup_db() -> Connection {
+    use crate::db::schema;
+    let conn = Connection::open_in_memory().unwrap();
+    schema::run_migrations(&conn).unwrap();
+    conn
+}
+
+#[cfg(test)]
+fn make_track(
+    artist: &str, album: &str, format: &str, genre: &str,
+    size: u64, duration: f64, bitrate: Option<u32>,
+    file_suffix: &str,
+) -> Track {
+    Track {
+        id: None,
+        file_path: format!("/music/{}/{}/{}.{}", artist, album, file_suffix, format),
+        relative_path: format!("{}/{}/{}.{}", artist, album, file_suffix, format),
+        library_root: "/music".to_string(),
+        title: Some("Track".to_string()),
+        artist: Some(artist.to_string()),
+        album_artist: None,
+        album: Some(album.to_string()),
+        track_number: Some(1),
+        disc_number: Some(1),
+        year: Some(2024),
+        genre: Some(genre.to_string()),
+        duration_secs: Some(duration),
+        format: format.to_string(),
+        file_size: size,
+        modified_at: 1700000000,
+        hash: None,
+        has_album_art: false,
+        bitrate,
+    }
+}
+
 #[cfg(test)]
 mod stats_tests {
     use super::*;
-    use crate::db::schema;
-
-    fn setup_db() -> Connection {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::run_migrations(&conn).unwrap();
-        conn
-    }
-
-    fn make_track(
-        artist: &str, album: &str, format: &str, genre: &str,
-        size: u64, duration: f64, bitrate: Option<u32>,
-        file_suffix: &str,
-    ) -> Track {
-        Track {
-            id: None,
-            file_path: format!("/music/{}/{}/{}.{}", artist, album, file_suffix, format),
-            relative_path: format!("{}/{}/{}.{}", artist, album, file_suffix, format),
-            library_root: "/music".to_string(),
-            title: Some("Track".to_string()),
-            artist: Some(artist.to_string()),
-            album_artist: None,
-            album: Some(album.to_string()),
-            track_number: Some(1),
-            disc_number: Some(1),
-            year: Some(2024),
-            genre: Some(genre.to_string()),
-            duration_secs: Some(duration),
-            format: format.to_string(),
-            file_size: size,
-            modified_at: 1700000000,
-            hash: None,
-            has_album_art: false,
-            bitrate,
-        }
-    }
 
     #[test]
     fn test_empty_library_stats() {
@@ -591,5 +736,232 @@ mod stats_tests {
         assert_eq!(stats.total_tracks, 1);
         assert_eq!(stats.total_artists, 1);
         assert_eq!(stats.formats.len(), 1);
+    }
+}
+
+#[cfg(test)]
+mod duplicate_tests {
+    use super::*;
+
+    #[test]
+    fn test_find_hash_duplicates_empty_library() {
+        let conn = setup_db();
+        let groups = find_hash_duplicates(&conn, "/music").unwrap();
+        assert!(groups.is_empty());
+    }
+
+    #[test]
+    fn test_find_hash_duplicates_no_duplicates() {
+        let conn = setup_db();
+        let mut t1 = make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, None, "t1");
+        t1.hash = Some("hash_a".to_string());
+        let mut t2 = make_track("A", "A1", "flac", "Rock", 48_000_000, 280.0, None, "t2");
+        t2.hash = Some("hash_b".to_string());
+        let mut t3 = make_track("B", "B1", "mp3", "Jazz", 8_000_000, 240.0, None, "t3");
+        t3.hash = Some("hash_c".to_string());
+        upsert_track(&conn, &t1).unwrap();
+        upsert_track(&conn, &t2).unwrap();
+        upsert_track(&conn, &t3).unwrap();
+
+        let groups = find_hash_duplicates(&conn, "/music").unwrap();
+        assert!(groups.is_empty());
+    }
+
+    #[test]
+    fn test_find_hash_duplicates_with_duplicates() {
+        let conn = setup_db();
+        let mut t1 = make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, None, "t1");
+        t1.hash = Some("hash_same".to_string());
+        let mut t2 = make_track("A", "A1", "flac", "Rock", 48_000_000, 280.0, None, "t2");
+        t2.hash = Some("hash_same".to_string());
+        let mut t3 = make_track("B", "B1", "mp3", "Jazz", 8_000_000, 240.0, None, "t3");
+        t3.hash = Some("hash_unique".to_string());
+        upsert_track(&conn, &t1).unwrap();
+        upsert_track(&conn, &t2).unwrap();
+        upsert_track(&conn, &t3).unwrap();
+
+        let groups = find_hash_duplicates(&conn, "/music").unwrap();
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].tracks.len(), 2);
+        assert_eq!(groups[0].match_type, DuplicateMatchType::ContentHash);
+    }
+
+    #[test]
+    fn test_find_hash_duplicates_ignores_null_hashes() {
+        let conn = setup_db();
+        let t1 = make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, None, "t1");
+        let t2 = make_track("A", "A1", "flac", "Rock", 48_000_000, 280.0, None, "t2");
+        upsert_track(&conn, &t1).unwrap();
+        upsert_track(&conn, &t2).unwrap();
+
+        let groups = find_hash_duplicates(&conn, "/music").unwrap();
+        assert!(groups.is_empty());
+    }
+
+    #[test]
+    fn test_find_metadata_duplicates_empty_library() {
+        let conn = setup_db();
+        let groups = find_metadata_duplicates(&conn, "/music").unwrap();
+        assert!(groups.is_empty());
+    }
+
+    #[test]
+    fn test_find_metadata_duplicates_same_title_artist_duration() {
+        let conn = setup_db();
+        let mut t1 = make_track("Artist", "Album1", "flac", "Rock", 50_000_000, 180.0, None, "t1");
+        t1.title = Some("Song".to_string());
+        t1.hash = Some("hash_a".to_string());
+        let mut t2 = make_track("Artist", "Album2", "mp3", "Rock", 8_000_000, 180.0, None, "t2");
+        t2.title = Some("Song".to_string());
+        t2.hash = Some("hash_b".to_string());
+        upsert_track(&conn, &t1).unwrap();
+        upsert_track(&conn, &t2).unwrap();
+
+        let groups = find_metadata_duplicates(&conn, "/music").unwrap();
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].tracks.len(), 2);
+        assert_eq!(groups[0].match_type, DuplicateMatchType::MetadataSimilarity);
+    }
+
+    #[test]
+    fn test_find_metadata_duplicates_skips_already_hash_matched() {
+        let conn = setup_db();
+        let mut t1 = make_track("Artist", "Album1", "flac", "Rock", 50_000_000, 180.0, None, "t1");
+        t1.title = Some("Song".to_string());
+        t1.hash = Some("hash_same".to_string());
+        let mut t2 = make_track("Artist", "Album2", "mp3", "Rock", 8_000_000, 180.0, None, "t2");
+        t2.title = Some("Song".to_string());
+        t2.hash = Some("hash_same".to_string());
+        upsert_track(&conn, &t1).unwrap();
+        upsert_track(&conn, &t2).unwrap();
+
+        let groups = find_metadata_duplicates(&conn, "/music").unwrap();
+        assert!(groups.is_empty());
+    }
+
+    #[test]
+    fn test_find_metadata_duplicates_duration_bucket_tolerance() {
+        let conn = setup_db();
+        let mut t1 = make_track("Artist", "Album1", "flac", "Rock", 50_000_000, 179.6, None, "t1");
+        t1.title = Some("Song".to_string());
+        t1.hash = Some("hash_a".to_string());
+        let mut t2 = make_track("Artist", "Album2", "mp3", "Rock", 8_000_000, 180.4, None, "t2");
+        t2.title = Some("Song".to_string());
+        t2.hash = Some("hash_b".to_string());
+        upsert_track(&conn, &t1).unwrap();
+        upsert_track(&conn, &t2).unwrap();
+
+        let groups = find_metadata_duplicates(&conn, "/music").unwrap();
+        assert_eq!(groups.len(), 1);
+    }
+
+    #[test]
+    fn test_find_metadata_duplicates_case_insensitive() {
+        let conn = setup_db();
+        let mut t1 = make_track("Beatles", "Album1", "flac", "Rock", 50_000_000, 180.0, None, "t1");
+        t1.title = Some("My Song".to_string());
+        t1.hash = Some("hash_a".to_string());
+        let mut t2 = make_track("beatles", "Album2", "mp3", "Rock", 8_000_000, 180.0, None, "t2");
+        t2.title = Some("my song".to_string());
+        t2.hash = Some("hash_b".to_string());
+        upsert_track(&conn, &t1).unwrap();
+        upsert_track(&conn, &t2).unwrap();
+
+        let groups = find_metadata_duplicates(&conn, "/music").unwrap();
+        assert_eq!(groups.len(), 1);
+    }
+
+    #[test]
+    fn test_get_tracks_without_hash() {
+        let conn = setup_db();
+        let t1 = make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, None, "t1");
+        let t2 = make_track("A", "A1", "flac", "Rock", 48_000_000, 280.0, None, "t2");
+        let mut t3 = make_track("B", "B1", "mp3", "Jazz", 8_000_000, 240.0, None, "t3");
+        t3.hash = Some("abc".to_string());
+        upsert_track(&conn, &t1).unwrap();
+        upsert_track(&conn, &t2).unwrap();
+        upsert_track(&conn, &t3).unwrap();
+
+        let unhashed = get_tracks_without_hash(&conn, "/music").unwrap();
+        assert_eq!(unhashed.len(), 2);
+    }
+
+    #[test]
+    fn test_update_track_hash() {
+        let conn = setup_db();
+        let t1 = make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, None, "t1");
+        upsert_track(&conn, &t1).unwrap();
+
+        // Get the track id
+        let unhashed = get_tracks_without_hash(&conn, "/music").unwrap();
+        assert_eq!(unhashed.len(), 1);
+        let (id, _) = &unhashed[0];
+
+        update_track_hash(&conn, *id, "new_hash").unwrap();
+
+        // Verify hash is updated
+        let unhashed_after = get_tracks_without_hash(&conn, "/music").unwrap();
+        assert!(unhashed_after.is_empty());
+
+        // Verify via direct query
+        let hash: Option<String> = conn
+            .query_row("SELECT hash FROM tracks WHERE id = ?1", params![id], |row| {
+                row.get(0)
+            })
+            .unwrap();
+        assert_eq!(hash, Some("new_hash".to_string()));
+    }
+
+    #[test]
+    fn test_delete_tracks_by_ids() {
+        let conn = setup_db();
+        upsert_track(&conn, &make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, None, "t1")).unwrap();
+        upsert_track(&conn, &make_track("A", "A1", "flac", "Rock", 48_000_000, 280.0, None, "t2")).unwrap();
+        upsert_track(&conn, &make_track("B", "B1", "mp3", "Jazz", 8_000_000, 240.0, None, "t3")).unwrap();
+
+        // Get all track ids
+        let mut stmt = conn.prepare("SELECT id FROM tracks ORDER BY id").unwrap();
+        let ids: Vec<i64> = stmt
+            .query_map([], |row| row.get(0))
+            .unwrap()
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        assert_eq!(ids.len(), 3);
+
+        let deleted = delete_tracks_by_ids(&conn, &[ids[0], ids[1]]).unwrap();
+        assert_eq!(deleted, 2);
+
+        let remaining: i64 = conn
+            .query_row("SELECT COUNT(*) FROM tracks", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(remaining, 1);
+    }
+
+    #[test]
+    fn test_delete_tracks_by_ids_empty() {
+        let conn = setup_db();
+        let deleted = delete_tracks_by_ids(&conn, &[]).unwrap();
+        assert_eq!(deleted, 0);
+    }
+
+    #[test]
+    fn test_find_hash_duplicates_scoped_to_library_root() {
+        let conn = setup_db();
+        let mut t1 = make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, None, "t1");
+        t1.hash = Some("hash_same".to_string());
+        let mut t2 = make_track("B", "B1", "mp3", "Jazz", 8_000_000, 240.0, None, "t2");
+        t2.hash = Some("hash_same".to_string());
+        t2.file_path = "/other/B/B1/t2.mp3".to_string();
+        t2.relative_path = "B/B1/t2.mp3".to_string();
+        t2.library_root = "/other".to_string();
+        upsert_track(&conn, &t1).unwrap();
+        upsert_track(&conn, &t2).unwrap();
+
+        // Each library root has only 1 track with that hash, so no duplicates
+        let groups = find_hash_duplicates(&conn, "/music").unwrap();
+        assert!(groups.is_empty());
+
+        let groups = find_hash_duplicates(&conn, "/other").unwrap();
+        assert!(groups.is_empty());
     }
 }

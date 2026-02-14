@@ -18,6 +18,7 @@ import type {
   TrackMetadataUpdate,
   AlbumArt,
   LibraryStats,
+  DuplicateResult,
   Playlist,
   PlaylistWithTracks,
   CreatePlaylistRequest,
@@ -211,4 +212,20 @@ export function reorderPlaylist(request: ReorderTracksRequest): Promise<Playlist
 
 export function exportPlaylist(id: string, format: string, path: string): Promise<void> {
   return invoke("export_playlist", { id, format, path });
+}
+
+export function findDuplicates(
+  root: string,
+  onProgress: (event: ProgressEvent) => void,
+): Promise<DuplicateResult> {
+  const channel = new Channel<ProgressEvent>();
+  channel.onmessage = onProgress;
+  return invoke("find_duplicates", { root, onProgress: channel });
+}
+
+export function deleteDuplicateTracks(
+  trackIds: number[],
+  filePaths: string[],
+): Promise<number> {
+  return invoke("delete_duplicate_tracks", { trackIds, filePaths });
 }

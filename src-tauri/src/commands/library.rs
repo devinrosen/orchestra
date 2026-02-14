@@ -7,9 +7,10 @@ use walkdir::WalkDir;
 
 use crate::db::library_repo;
 use crate::error::AppError;
+use crate::models::duplicate::DuplicateResult;
 use crate::models::progress::ProgressEvent;
 use crate::models::track::{is_audio_file, LibraryStats, LibraryTree, Track};
-use crate::scanner::{metadata, walker};
+use crate::scanner::{hasher, metadata, walker};
 
 #[tauri::command]
 pub async fn scan_directory(
@@ -221,4 +222,86 @@ pub async fn get_library_stats(
 ) -> Result<LibraryStats, AppError> {
     let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
     library_repo::get_library_stats(&conn, &root)
+}
+
+#[tauri::command]
+pub async fn find_duplicates(
+    db: tauri::State<'_, Mutex<Connection>>,
+    root: String,
+    on_progress: Channel<ProgressEvent>,
+) -> Result<DuplicateResult, AppError> {
+    // Phase 1: Hash all un-hashed tracks
+    let unhashed = {
+        let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
+        library_repo::get_tracks_without_hash(&conn, &root)?
+    };
+
+    let total = unhashed.len();
+    for (i, (id, file_path)) in unhashed.iter().enumerate() {
+        if i % 10 == 0 {
+            let _ = on_progress.send(ProgressEvent::ScanProgress {
+                files_found: total,
+                files_processed: i,
+                current_file: file_path
+                    .rsplit('/')
+                    .next()
+                    .unwrap_or(file_path)
+                    .to_string(),
+                dirs_total: 0,
+                dirs_completed: 0,
+            });
+        }
+        match hasher::hash_file(Path::new(file_path)) {
+            Ok(hash) => {
+                let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
+                library_repo::update_track_hash(&conn, *id, &hash)?;
+            }
+            Err(e) => {
+                eprintln!("Failed to hash {}: {}", file_path, e);
+            }
+        }
+    }
+
+    // Phase 2: Query for duplicates
+    let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
+    let hash_groups = library_repo::find_hash_duplicates(&conn, &root)?;
+    let meta_groups = library_repo::find_metadata_duplicates(&conn, &root)?;
+
+    let mut all_groups = hash_groups;
+    all_groups.extend(meta_groups);
+
+    let total_duplicate_tracks: usize = all_groups.iter().map(|g| g.tracks.len() - 1).sum();
+    let total_wasted_bytes: u64 = all_groups
+        .iter()
+        .map(|g| g.tracks.iter().skip(1).map(|t| t.file_size).sum::<u64>())
+        .sum();
+
+    let _ = on_progress.send(ProgressEvent::ScanComplete {
+        total_files: total,
+        duration_ms: 0,
+    });
+
+    Ok(DuplicateResult {
+        groups: all_groups,
+        total_duplicate_tracks,
+        total_wasted_bytes,
+    })
+}
+
+#[tauri::command]
+pub async fn delete_duplicate_tracks(
+    db: tauri::State<'_, Mutex<Connection>>,
+    track_ids: Vec<i64>,
+    file_paths: Vec<String>,
+) -> Result<usize, AppError> {
+    // Delete files from disk
+    for path in &file_paths {
+        if let Err(e) = std::fs::remove_file(path) {
+            eprintln!("Failed to delete {}: {}", path, e);
+        }
+    }
+
+    // Remove from database
+    let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
+    library_repo::delete_tracks_by_ids(&conn, &track_ids)
 }
