@@ -1,4 +1,4 @@
-# Music Sync
+# Orchestra
 
 A desktop application for synchronizing music libraries between drives — NAS, DAP (digital audio player), laptop, or any mounted volume. Built with Tauri v2, Svelte 5, and Rust.
 

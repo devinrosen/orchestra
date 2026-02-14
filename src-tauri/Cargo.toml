@@ -1,14 +1,14 @@
 [package]
-name = "music-sync"
+name = "orchestra-app"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "music_sync_lib"
+name = "orchestra_app_lib"
 crate-type = ["lib", "cdylib", "staticlib"]
 
 [[bin]]
-name = "music-sync"
+name = "orchestra-app"
 path = "src/main.rs"
 
 [dependencies]

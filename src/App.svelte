@@ -49,7 +49,7 @@
 
 <div class="app-layout">
   <nav class="sidebar">
-    <div class="app-title">Music Sync</div>
+    <div class="app-title">Orchestra</div>
     {#each navItems as item}
       <button
         class="nav-item"

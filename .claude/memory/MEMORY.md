@@ -1,4 +1,4 @@
-# Music Sync Desktop App - Project Memory
+# Orchestra Desktop App - Project Memory
 
 ## Tech Stack
 - **Backend**: Tauri v2 (Rust) with rusqlite (bundled SQLite), lofty, blake3, walkdir
