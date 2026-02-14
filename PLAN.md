@@ -1,302 +1,259 @@
-# Plan: Eject/Unmount Device Button
+# Plan: Shared Track Row Component
 
-## Summary
+## Overview
 
-Add an eject button to the device card so users can safely unmount a connected device directly from the app without switching to Finder or the system tray. This involves a new Rust backend command that calls macOS `diskutil eject`, a new frontend button on the `DeviceCard` component, a confirmation dialog, and appropriate state management.
+Extract the duplicated track row markup (play button, track number, title, duration, format, size) from TreeView, AlbumListView, GenreTreeView, and FolderTreeView into a reusable `TrackRow.svelte` component. Also extract the duplicated `formatDuration` and `formatSize` utility functions into a shared module.
 
-## Backend Changes
+## Current State
 
-### 1. New module: `src-tauri/src/device/eject.rs`
+### Duplicated track row markup
 
-Create a new module that handles the platform-specific eject logic:
+All four views render an almost-identical block of HTML for each track. Here is the canonical version from **TreeView.svelte** (lines 89-110):
 
-```rust
-use std::process::Command;
-use crate::error::AppError;
-
-/// Eject a volume by its mount path using macOS `diskutil`.
-/// Uses `diskutil eject` which cleanly unmounts and powers down the drive.
-pub fn eject_volume(mount_path: &str) -> Result<(), AppError> {
-    let output = Command::new("diskutil")
-        .args(["eject", mount_path])
-        .output()
-        .map_err(|e| AppError::General(format!("Failed to run diskutil: {}", e)))?;
-
-    if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        return Err(AppError::General(format!("Failed to eject device: {}", stderr.trim())));
-    }
-
-    Ok(())
-}
+```svelte
+{#each album.tracks as track}
+  {@const isPlaying = playerStore.currentTrack?.file_path === track.file_path}
+  <div class="track-row" class:now-playing={isPlaying}>
+    {#if onPlayTrack}
+      <button
+        class="track-play-btn"
+        onclick={(e) => { e.stopPropagation(); onPlayTrack(track, album.tracks); }}
+        title="Play track"
+      >&#9654;</button>
+    {/if}
+    <button
+      class="track-node"
+      onclick={() => onEditTrack?.(track)}
+      title="Edit track metadata"
+    >
+      <span class="track-num">{track.track_number ?? "-"}</span>
+      <span class="track-title">{track.title ?? track.relative_path}</span>
+      <span class="track-duration">{formatDuration(track.duration_secs)}</span>
+      <span class="track-format">{track.format.toUpperCase()}</span>
+      <span class="track-size">{formatSize(track.file_size)}</span>
+    </button>
+  </div>
+{/each}
 ```
 
-**Why `diskutil eject` instead of `diskutil unmount`?**
-- `eject` both unmounts and powers down the USB device, making it safe to physically disconnect (the standard "eject" behavior users expect).
-- `unmount` only unmounts the filesystem but leaves the device powered on — users might still disconnect prematurely.
-- `diskutil eject` is what Finder uses under the hood.
+**AlbumListView.svelte** (lines 72-93) and **GenreTreeView.svelte** (lines 90-110) are character-for-character identical to this.
 
-### 2. Register the module: `src-tauri/src/device/mod.rs`
-
-Add `pub mod eject;` to the existing module:
-
-```rust
-pub mod detect;
-pub mod eject;  // NEW
-pub mod sync;
+**FolderTreeView.svelte** (lines 75-96) has one difference in the title display:
+```svelte
+<span class="track-title">{track.title ?? track.relative_path.split("/").pop()}</span>
 ```
+Instead of `track.relative_path`, it uses `track.relative_path.split("/").pop()` to show just the filename.
 
-### 3. New Tauri command: `src-tauri/src/commands/device_cmd.rs`
+### Duplicated utility functions
 
-Add an `eject_device` command at the end of the file:
-
-```rust
-#[tauri::command]
-pub async fn eject_device(
-    db: tauri::State<'_, Mutex<Connection>>,
-    device_id: String,
-) -> Result<(), AppError> {
-    let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
-    let device = device_repo::get_device(&conn, &device_id)?;
-
-    let mount_path = device
-        .mount_path
-        .as_ref()
-        .ok_or_else(|| AppError::DeviceDisconnected(device.name.clone()))?;
-
-    if !std::path::Path::new(mount_path).exists() {
-        return Err(AppError::DeviceDisconnected(device.name.clone()));
-    }
-
-    crate::device::eject::eject_volume(mount_path)?;
-
-    // Clear the mount_path in the database since the device is now ejected
-    device_repo::update_mount_path(&conn, &device_id, "")?;
-
-    Ok(())
-}
-```
-
-Key design decisions:
-- Takes `device_id` (not mount_path) so the backend controls the lookup — the frontend never passes raw paths to system commands (prevents command injection).
-- After successful eject, clears the `mount_path` in the database so the device shows as disconnected without requiring a re-detect.
-- The device record is preserved (not deleted) so it can be reconnected later.
-
-### 4. Register the command: `src-tauri/src/lib.rs`
-
-Add `commands::device_cmd::eject_device` to the `generate_handler![]` macro:
-
-```rust
-commands::device_cmd::eject_device,  // NEW — after execute_device_sync
-```
-
-### 5. Error handling
-
-Use `AppError::General` for eject failures. Adding a new variant is unnecessary complexity — the error message from `diskutil` is descriptive enough and the frontend only needs to display it as a string. All `AppError` variants serialize to strings anyway.
-
-## Frontend Changes
-
-### 6. New command wrapper: `src/lib/api/commands.ts`
-
-Add the `ejectDevice` function:
+`formatDuration` and `formatSize` are identically defined in all four files:
 
 ```typescript
-export function ejectDevice(deviceId: string): Promise<void> {
-  return invoke("eject_device", { deviceId });
+function formatDuration(secs: number | null): string {
+  if (secs == null) return "--:--";
+  const m = Math.floor(secs / 60);
+  const s = Math.floor(secs % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 ```
 
-### 7. Device store method: `src/lib/stores/device.svelte.ts`
+### Duplicated CSS
 
-Add an `ejectDevice` method and tracking state to `DeviceStore`:
+All four files contain identical CSS rules for: `.track-row`, `.track-row.now-playing`, `.track-row.now-playing .track-title`, `.track-play-btn`, `.track-row:hover .track-play-btn`, `.track-play-btn:hover`, `.track-node`, `.track-node:hover`, `.track-num`, `.track-title`, `.track-duration`, `.track-format`, `.track-size` (approximately 65 lines of CSS each).
 
-```typescript
-ejecting = $state<string | null>(null);  // device ID currently being ejected
+### Playback integration
 
-async ejectDevice(deviceId: string) {
-    this.ejecting = deviceId;
-    this.error = null;
-    try {
-        await commands.ejectDevice(deviceId);
-        // Update the device in local state to show as disconnected
-        this.devices = this.devices.map((d) =>
-            d.device.id === deviceId
-                ? { ...d, connected: false, device: { ...d.device, mount_path: null } }
-                : d,
-        );
-    } catch (e) {
-        this.error = String(e);
-    } finally {
-        this.ejecting = null;
-    }
-}
-```
+Each view imports `playerStore` from `../stores/player.svelte` and uses `playerStore.currentTrack?.file_path === track.file_path` to determine if a track is currently playing. The play button calls an `onPlayTrack` callback (passed as a prop) with `(track, siblingTracks)` -- the sibling tracks array varies by context:
+- TreeView/AlbumListView/GenreTreeView: `album.tracks`
+- FolderTreeView: `node.tracks`
 
-### 8. Eject button on `DeviceCard`: `src/lib/components/DeviceCard.svelte`
+The edit button calls `onEditTrack?.(track)`.
 
-Add an `onEject` callback prop and an eject button to the device card.
+## Component Design
 
-**Props change:**
+### New file: `src/lib/components/TrackRow.svelte`
+
+**Props interface:**
+
 ```typescript
 let {
-    device,
-    busy = false,
-    ejecting = false,  // NEW
-    onConfigure,
-    onSync,
-    onDelete,
-    onEject,           // NEW
+  track,
+  siblingTracks,
+  titleFallback,
+  onPlay,
+  onEdit,
 }: {
-    device: DeviceWithStatus;
-    busy?: boolean;
-    ejecting?: boolean;
-    onConfigure: () => void;
-    onSync: () => void;
-    onDelete: () => void;
-    onEject: () => void;
+  track: Track;
+  siblingTracks: Track[];
+  titleFallback?: string;
+  onPlay?: (track: Track, siblingTracks: Track[]) => void;
+  onEdit?: (track: Track) => void;
 } = $props();
 ```
 
-**Button placement:** Add the eject button in the `device-actions` div. It should only be visible when the device is connected:
+| Prop | Type | Required | Description |
+|------|------|----------|-------------|
+| `track` | `Track` | Yes | The track to display |
+| `siblingTracks` | `Track[]` | Yes | Sibling tracks passed to play callback (e.g. album tracks or folder tracks) |
+| `titleFallback` | `string` | No | Override for the fallback text when `track.title` is null. Defaults to `track.relative_path`. FolderTreeView will pass `track.relative_path.split("/").pop()`. |
+| `onPlay` | `(track, siblings) => void` | No | If provided, a play button is shown |
+| `onEdit` | `(track) => void` | No | Click handler for the track row body |
 
-```html
-<div class="device-actions">
-    <button class="secondary" onclick={onConfigure}>Configure</button>
-    {#if device.connected}
-        <button
-            class="eject-btn"
-            onclick={onEject}
-            disabled={busy || ejecting}
-            title="Safely eject this device"
-        >
-            {ejecting ? "Ejecting..." : "Eject"}
-        </button>
-    {/if}
-    <button
-        class="primary"
-        onclick={onSync}
-        disabled={!device.connected || device.selected_artists.length === 0 || busy}
-    >
-        {busy ? "In Progress..." : "Sync"}
-    </button>
-    <button class="danger-btn" onclick={onDelete}>Delete</button>
-</div>
-```
+**Internal state:**
+- Derives `isPlaying` from `playerStore.currentTrack?.file_path === track.file_path`
+- Imports `formatDuration` and `formatSize` from `../utils/format`
 
-**Styling for the eject button:**
-```css
-.eject-btn {
-    background: none;
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-    padding: 6px 12px;
-    font-size: 13px;
-}
+**Markup:**
+The component renders the `<div class="track-row">` block containing the optional play button and the track info button, identical to the current duplicated markup.
 
-.eject-btn:hover:not(:disabled) {
-    color: var(--text-primary);
-    border-color: var(--text-secondary);
-}
+**CSS:**
+All track-row-related styles move into TrackRow.svelte's `<style>` block. Since Svelte styles are component-scoped, there are no conflicts with parent components.
 
-.eject-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-```
+### New file: `src/lib/utils/format.ts`
 
-### 9. Wire up in `DeviceSync.svelte`: `src/pages/DeviceSync.svelte`
+Extract `formatDuration` and `formatSize` into a shared utility module. TrackRow.svelte will import them, and any other component that needs them can too.
 
-Add a confirmation dialog and handler.
-
-**State:**
 ```typescript
-let ejectingDeviceId = $state<string | null>(null);
-```
-
-**Handler:**
-```typescript
-function handleEjectRequest(deviceId: string) {
-    ejectingDeviceId = deviceId;
+export function formatDuration(secs: number | null): string {
+  if (secs == null) return "--:--";
+  const m = Math.floor(secs / 60);
+  const s = Math.floor(secs % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-async function confirmEject() {
-    if (!ejectingDeviceId) return;
-    await deviceStore.ejectDevice(ejectingDeviceId);
-    ejectingDeviceId = null;
-}
-
-function cancelEject() {
-    ejectingDeviceId = null;
+export function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 ```
 
-**Pass to DeviceCard:**
-```html
-<DeviceCard
-    {device}
-    busy={isBusy}
-    ejecting={deviceStore.ejecting === device.device.id}
-    onConfigure={() => handleConfigure(device.device.id)}
-    onSync={() => handleSync(device.device.id)}
-    onDelete={() => handleDelete(device.device.id)}
-    onEject={() => handleEjectRequest(device.device.id)}
-/>
-```
+## Frontend Changes
 
-**Confirmation dialog** (reuses the same overlay pattern as the register dialog):
-```html
-{#if ejectingDeviceId}
-    {@const ejectDevice = deviceStore.devices.find((d) => d.device.id === ejectingDeviceId)}
-    <div class="register-dialog-overlay" role="presentation" onclick={cancelEject}>
-        <div class="register-dialog" role="dialog" onclick={(e) => e.stopPropagation()}>
-            <h3>Eject Device</h3>
-            <p>Are you sure you want to eject "{ejectDevice?.device.name}"?</p>
-            <p class="hint">Make sure no sync is in progress before ejecting.</p>
-            <div class="dialog-actions">
-                <button class="secondary" onclick={cancelEject}>Cancel</button>
-                <button class="primary" onclick={confirmEject}>Eject</button>
-            </div>
-        </div>
-    </div>
-{/if}
-```
+### TrackRow.svelte (new)
 
-## Safety Considerations
+Full component as described in Component Design above.
 
-1. **Don't eject during active sync**: The eject button is disabled when `busy` is true (which covers `computing_diff` and `syncing` phases). The confirmation dialog also warns the user.
+### TreeView.svelte
 
-2. **Confirmation prompt**: Always show a confirmation dialog before ejecting. Accidental eject during file transfer could cause data corruption.
+1. Add import: `import TrackRow from "./TrackRow.svelte";`
+2. Remove `import { playerStore }` (no longer used directly)
+3. Remove `formatDuration` and `formatSize` function definitions
+4. Replace lines 89-110 (the `{#each album.tracks as track}` block) with:
+   ```svelte
+   {#each album.tracks as track}
+     <TrackRow
+       {track}
+       siblingTracks={album.tracks}
+       onPlay={onPlayTrack}
+       onEdit={onEditTrack}
+     />
+   {/each}
+   ```
+5. Remove all track-row-related CSS (`.track-row`, `.track-play-btn`, `.track-node`, `.track-num`, `.track-title`, `.track-duration`, `.track-format`, `.track-size` and their variants -- approximately lines 213-292)
 
-3. **Backend validation**: The backend verifies the device exists and is currently mounted before attempting to eject. If the mount path doesn't exist, it returns `DeviceDisconnected`.
+### AlbumListView.svelte
 
-4. **No raw paths from frontend**: The frontend sends only the `device_id`; the backend resolves the mount path internally. This prevents path injection attacks.
+1. Add import: `import TrackRow from "./TrackRow.svelte";`
+2. Remove `import { playerStore }` (no longer used directly)
+3. Remove `formatDuration` and `formatSize` function definitions
+4. Replace lines 72-93 with:
+   ```svelte
+   {#each album.tracks as track}
+     <TrackRow
+       {track}
+       siblingTracks={album.tracks}
+       onPlay={onPlayTrack}
+       onEdit={onEditTrack}
+     />
+   {/each}
+   ```
+5. Remove all track-row-related CSS (approximately lines 193-272)
 
-5. **State update after eject**: After a successful eject, the device's `mount_path` is cleared in both the database and the frontend state, so it immediately shows as "Disconnected" without needing a re-detect cycle.
+### GenreTreeView.svelte
 
-6. **diskutil error handling**: If `diskutil eject` fails (e.g., "resource busy"), the error message from stderr is returned to the frontend and displayed in the error banner.
+1. Add import: `import TrackRow from "./TrackRow.svelte";`
+2. Remove `import { playerStore }` (no longer used directly)
+3. Remove `formatDuration` and `formatSize` function definitions
+4. Replace lines 90-110 with:
+   ```svelte
+   {#each album.tracks as track}
+     <TrackRow
+       {track}
+       siblingTracks={album.tracks}
+       onPlay={onPlayTrack}
+       onEdit={onEditTrack}
+     />
+   {/each}
+   ```
+5. Remove all track-row-related CSS (approximately lines 219-298)
 
-## Edge Cases
+### FolderTreeView.svelte
 
-- **Device already disconnected**: If the user unplugs before clicking Eject, the backend returns `DeviceDisconnected`. The frontend shows an error banner but the device state will correct itself on next detect.
-- **Eject fails because files are open**: macOS `diskutil eject` will fail with "resource busy". The error propagates to the UI. No state is changed in this case.
-- **Multiple volumes on same physical device**: `diskutil eject` ejects the specific volume, not the entire physical device. If the device has multiple partitions, only the addressed volume is ejected.
-- **Re-connecting after eject**: When the user reconnects and clicks "Detect Devices", the detect flow will find the volume again and update the mount_path in the database (existing logic in `detect_volumes` handles this).
+1. Add import: `import TrackRow from "./TrackRow.svelte";`
+2. Remove `import { playerStore }` (no longer used directly)
+3. Remove `formatDuration` and `formatSize` function definitions
+4. Replace lines 75-96 with:
+   ```svelte
+   {#each node.tracks as track}
+     <TrackRow
+       {track}
+       siblingTracks={node.tracks}
+       titleFallback={track.title ? undefined : track.relative_path.split("/").pop() ?? track.relative_path}
+       onPlay={onPlayTrack}
+       onEdit={onEditTrack}
+     />
+   {/each}
+   ```
+   Note the `titleFallback` prop is only needed here to preserve the filename-only fallback behavior.
+5. Remove all track-row-related CSS (approximately lines 191-270)
 
-## Files to Modify
+## Dead Code
 
-| File | Action |
-|------|--------|
-| `src-tauri/src/device/eject.rs` | **CREATE** — eject logic using `diskutil eject` |
-| `src-tauri/src/device/mod.rs` | **MODIFY** — add `pub mod eject;` |
-| `src-tauri/src/commands/device_cmd.rs` | **MODIFY** — add `eject_device` command |
-| `src-tauri/src/lib.rs` | **MODIFY** — register `eject_device` in `generate_handler![]` |
-| `src/lib/api/commands.ts` | **MODIFY** — add `ejectDevice()` wrapper |
-| `src/lib/stores/device.svelte.ts` | **MODIFY** — add `ejecting` state + `ejectDevice()` method |
-| `src/lib/components/DeviceCard.svelte` | **MODIFY** — add eject button + `onEject` prop |
-| `src/pages/DeviceSync.svelte` | **MODIFY** — add confirmation dialog + handler |
+After the refactor, the following become unused and should be removed from each parent view:
 
-## Platform Considerations
+| Item | Files | Reason |
+|------|-------|--------|
+| `import { playerStore }` | All 4 views | `isPlaying` check moves into TrackRow |
+| `formatDuration()` | All 4 views | Moved to `src/lib/utils/format.ts` |
+| `formatSize()` | All 4 views | Moved to `src/lib/utils/format.ts` |
+| `.track-row` CSS (and all variants) | All 4 views | Moved into TrackRow.svelte |
+| `.track-play-btn` CSS (and all variants) | All 4 views | Moved into TrackRow.svelte |
+| `.track-node` CSS (and all variants) | All 4 views | Moved into TrackRow.svelte |
+| `.track-num` CSS | All 4 views | Moved into TrackRow.svelte |
+| `.track-title` CSS | All 4 views | Moved into TrackRow.svelte |
+| `.track-duration` CSS | All 4 views | Moved into TrackRow.svelte |
+| `.track-format` CSS | All 4 views | Moved into TrackRow.svelte |
+| `.track-size` CSS | All 4 views | Moved into TrackRow.svelte |
 
-- This implementation is **macOS-only** (`diskutil` is macOS-specific). This is consistent with the rest of the device detection code (`detect.rs` already uses `diskutil info -plist` and reads from `/Volumes`).
-- If cross-platform support is needed later, the `eject.rs` module can be extended with `#[cfg(target_os)]` blocks for Linux (`udisksctl`) and Windows (`mountvol /d` or WMI).
-- No new crate dependencies are needed — `std::process::Command` is sufficient.
+No existing components or modules become entirely unused.
+
+## Test Cases
+
+1. **Type checking**: Run `npm run check` -- all four refactored views and the new TrackRow.svelte must pass TypeScript/Svelte type checking with zero errors.
+2. **Visual regression** (manual): Open the library page in each view mode (Artist, Album, Genre, Folder) and verify:
+   - Track rows display identically to before the refactor
+   - Track number, title, duration, format badge, and size all render correctly
+   - The "now playing" highlight (accent color background) still appears on the currently playing track
+3. **Play button**: Click a track's play button in each view mode. Confirm playback starts and the play button only appears on hover.
+4. **Edit button**: Click a track row body in each view mode. Confirm the metadata editor opens for that track.
+5. **Folder view title fallback**: In Folder view, verify that tracks without a `title` show just the filename (not the full relative path).
+6. **Rust tests**: Run `cargo test` from `src-tauri/` -- backend is unaffected but confirms no regressions.
+
+## Implementation Steps
+
+1. Create `src/lib/utils/format.ts` with `formatDuration` and `formatSize` exports.
+2. Create `src/lib/components/TrackRow.svelte` with the props interface, markup, and styles as specified above. Import `formatDuration`/`formatSize` from `../utils/format` and `playerStore` from `../stores/player.svelte`.
+3. Refactor **TreeView.svelte**: import TrackRow, replace track row block, remove dead code (playerStore import, format functions, track CSS).
+4. Refactor **AlbumListView.svelte**: same as step 3.
+5. Refactor **GenreTreeView.svelte**: same as step 3.
+6. Refactor **FolderTreeView.svelte**: same as step 3, plus pass `titleFallback` prop.
+7. Run `npm run check` and fix any type errors.
+8. Run `cargo test` from `src-tauri/` to confirm backend is unaffected.
+9. Update `docs/FEATURES.md` to mark the feature as `[implemented]`.
