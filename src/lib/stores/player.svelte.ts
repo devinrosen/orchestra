@@ -12,6 +12,7 @@ class PlayerStore {
   muted = $state(false);
   artwork = $state<AlbumArt | null>(null);
   error = $state<string | null>(null);
+  visualizerActive = $state(false);
 
   currentTrack = $derived(this.queue.length > 0 ? this.queue[this.queueIndex] : null);
   hasNext = $derived(this.queueIndex < this.queue.length - 1);
@@ -20,9 +21,35 @@ class PlayerStore {
 
   private audio: HTMLAudioElement | null = null;
   private pendingPlay = false;
+  private audioContext: AudioContext | null = null;
+  private analyser: AnalyserNode | null = null;
+  private sourceNode: MediaElementAudioSourceNode | null = null;
+
+  getAnalyser(): AnalyserNode | null {
+    return this.analyser;
+  }
+
+  toggleVisualizer() {
+    this.visualizerActive = !this.visualizerActive;
+    if (this.visualizerActive && !this.audioContext && this.audio) {
+      this.initAudioContext();
+    }
+  }
+
+  private initAudioContext() {
+    if (!this.audio || this.audioContext) return;
+    this.audioContext = new AudioContext();
+    this.analyser = this.audioContext.createAnalyser();
+    this.analyser.fftSize = 2048;
+    this.analyser.smoothingTimeConstant = 0.8;
+    this.sourceNode = this.audioContext.createMediaElementSource(this.audio);
+    this.sourceNode.connect(this.analyser);
+    this.analyser.connect(this.audioContext.destination);
+  }
 
   bindAudio(el: HTMLAudioElement) {
     this.audio = el;
+    el.crossOrigin = "anonymous";
     el.volume = this.volume;
 
     el.addEventListener("timeupdate", () => {

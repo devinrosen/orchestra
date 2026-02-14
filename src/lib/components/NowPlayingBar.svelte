@@ -85,6 +85,9 @@
   {/if}
 
   <div class="volume-section">
+    <button class="ctrl-btn viz-btn" class:active={playerStore.visualizerActive} onclick={() => playerStore.toggleVisualizer()} title="Visualizer">
+      &#x2261;
+    </button>
     <button class="ctrl-btn queue-btn" class:active={showQueue} onclick={() => showQueue = !showQueue} title="Play Queue">
       &#x2630;
     </button>
@@ -258,6 +261,15 @@
     gap: 6px;
     flex-shrink: 0;
     min-width: 120px;
+  }
+
+  .viz-btn {
+    font-size: 14px;
+  }
+
+  .viz-btn.active {
+    color: var(--accent);
+    background: var(--bg-tertiary);
   }
 
   .queue-btn {

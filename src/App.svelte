@@ -10,6 +10,7 @@
   import Playlists from "./pages/Playlists.svelte";
   import GlobalStatusBar from "./lib/components/GlobalStatusBar.svelte";
   import NowPlayingBar from "./lib/components/NowPlayingBar.svelte";
+  import VisualizerPanel from "./lib/components/VisualizerPanel.svelte";
   import { libraryStore } from "./lib/stores/library.svelte";
   import { playerStore } from "./lib/stores/player.svelte";
   import { playlistStore } from "./lib/stores/playlist.svelte";
@@ -75,6 +76,9 @@
       <Settings />
     {/if}
     </main>
+    {#if playerStore.currentTrack && playerStore.visualizerActive}
+      <VisualizerPanel onClose={() => playerStore.toggleVisualizer()} />
+    {/if}
     {#if playerStore.currentTrack}
       <NowPlayingBar />
     {/if}
