@@ -6,7 +6,7 @@ use tauri::ipc::Channel;
 use crate::db::{device_repo, library_repo};
 use crate::device::{detect, sync as device_sync};
 use crate::error::AppError;
-use crate::models::device::{ArtistSummary, DetectedVolume, DeviceWithStatus, RegisterDeviceRequest};
+use crate::models::device::{AlbumSelection, AlbumSummary, ArtistSummary, DetectedVolume, DeviceWithStatus, RegisterDeviceRequest};
 use crate::models::diff::DiffResult;
 use crate::models::progress::ProgressEvent;
 use crate::sync::progress::CancelToken;
@@ -75,6 +75,7 @@ pub async fn register_device(
         device,
         connected,
         selected_artists: vec![],
+        selected_albums: vec![],
     })
 }
 
@@ -93,10 +94,12 @@ pub async fn list_devices(
             .map(|p| Path::new(p).exists())
             .unwrap_or(false);
         let selected_artists = device_repo::get_selected_artists(&conn, &device.id)?;
+        let selected_albums = device_repo::get_selected_albums(&conn, &device.id)?;
         result.push(DeviceWithStatus {
             device,
             connected,
             selected_artists,
+            selected_albums,
         });
     }
 
@@ -130,10 +133,11 @@ pub async fn compute_device_diff(
     device_id: String,
     on_progress: Channel<ProgressEvent>,
 ) -> Result<DiffResult, AppError> {
-    let (device, selected_artists, library_root, hash_cache) = {
+    let (device, selected_artists, selected_albums, library_root, hash_cache) = {
         let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
         let device = device_repo::get_device(&conn, &device_id)?;
         let artists = device_repo::get_selected_artists(&conn, &device.id)?;
+        let albums = device_repo::get_selected_albums(&conn, &device.id)?;
         let cache = device_repo::get_file_cache(&conn, &device_id)?;
 
         // Get library root from settings
@@ -142,7 +146,7 @@ pub async fn compute_device_diff(
             .query_row([], |row| row.get(0))
             .map_err(|_| AppError::General("Library root not configured".to_string()))?;
 
-        (device, artists, library_root, cache)
+        (device, artists, albums, library_root, cache)
     };
 
     let mount_path = device
@@ -160,10 +164,10 @@ pub async fn compute_device_diff(
         Path::new(mount_path).join(&device.music_folder)
     };
 
-    // Get tracks for selected artists
+    // Get tracks for selected artists and albums
     let tracks = {
         let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
-        library_repo::get_tracks_by_artists(&conn, &library_root, &selected_artists)?
+        library_repo::get_tracks_for_device(&conn, &library_root, &selected_artists, &selected_albums)?
     };
 
     let (diff, new_cache) = device_sync::compute_device_diff(
@@ -245,6 +249,17 @@ pub async fn execute_device_sync(
 }
 
 #[tauri::command]
+pub async fn set_device_albums(
+    db: tauri::State<'_, Mutex<Connection>>,
+    device_id: String,
+    albums: Vec<AlbumSelection>,
+) -> Result<(), AppError> {
+    let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
+    let _ = device_repo::get_device(&conn, &device_id)?;
+    device_repo::set_selected_albums(&conn, &device_id, &albums)
+}
+
+#[tauri::command]
 pub async fn list_artists(
     db: tauri::State<'_, Mutex<Connection>>,
 ) -> Result<Vec<ArtistSummary>, AppError> {
@@ -256,4 +271,18 @@ pub async fn list_artists(
         .map_err(|_| AppError::General("Library root not configured".to_string()))?;
 
     library_repo::list_artists(&conn, &library_root)
+}
+
+#[tauri::command]
+pub async fn list_albums(
+    db: tauri::State<'_, Mutex<Connection>>,
+) -> Result<Vec<AlbumSummary>, AppError> {
+    let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
+
+    let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = 'library_root'")?;
+    let library_root: String = stmt
+        .query_row([], |row| row.get(0))
+        .map_err(|_| AppError::General("Library root not configured".to_string()))?;
+
+    library_repo::list_albums(&conn, &library_root)
 }

@@ -13,6 +13,8 @@ import type {
   DeviceWithStatus,
   RegisterDeviceRequest,
   ArtistSummary,
+  AlbumSelection,
+  AlbumSummary,
   TrackMetadataUpdate,
   AlbumArt,
 } from "./types";
@@ -137,6 +139,14 @@ export function executeDeviceSync(
 
 export function listArtists(): Promise<ArtistSummary[]> {
   return invoke("list_artists");
+}
+
+export function setDeviceAlbums(deviceId: string, albums: AlbumSelection[]): Promise<void> {
+  return invoke("set_device_albums", { deviceId, albums });
+}
+
+export function listAlbums(): Promise<AlbumSummary[]> {
+  return invoke("list_albums");
 }
 
 export function getTrackArtwork(filePath: string): Promise<AlbumArt | null> {

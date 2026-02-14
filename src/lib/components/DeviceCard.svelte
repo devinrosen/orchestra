@@ -58,11 +58,13 @@
       </div>
     {/if}
     <div class="info-row">
-      <span class="info-label">Artists</span>
+      <span class="info-label">Selection</span>
       <span class="info-value">
-        {device.selected_artists.length === 0
-          ? "None selected"
-          : `${device.selected_artists.length} selected`}
+        {#if device.selected_artists.length === 0 && device.selected_albums.length === 0}
+          None selected
+        {:else}
+          {device.selected_artists.length} artist{device.selected_artists.length !== 1 ? "s" : ""}{#if device.selected_albums.length > 0}, {device.selected_albums.length} album{device.selected_albums.length !== 1 ? "s" : ""}{/if}
+        {/if}
       </span>
     </div>
     {#if device.device.music_folder}
@@ -84,7 +86,7 @@
     <button
       class="primary"
       onclick={onSync}
-      disabled={!device.connected || device.selected_artists.length === 0 || busy}
+      disabled={!device.connected || (device.selected_artists.length === 0 && device.selected_albums.length === 0) || busy}
     >
       {busy ? "In Progress..." : "Sync"}
     </button>

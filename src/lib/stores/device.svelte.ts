@@ -3,6 +3,8 @@ import type {
   DeviceWithStatus,
   RegisterDeviceRequest,
   ArtistSummary,
+  AlbumSelection,
+  AlbumSummary,
   DiffResult,
   ProgressEvent,
 } from "../api/types";
@@ -21,6 +23,8 @@ class DeviceStore {
   detectedVolumes = $state<DetectedVolume[]>([]);
   selectedDeviceId = $state<string | null>(null);
   availableArtists = $state<ArtistSummary[]>([]);
+  availableAlbums = $state<AlbumSummary[]>([]);
+  loadingAlbums = $state(false);
   syncPhase = $state<DeviceSyncPhase>("idle");
   diffResult = $state<DiffResult | null>(null);
   diffProgress = $state({
@@ -108,6 +112,31 @@ class DeviceStore {
       this.error = String(e);
     } finally {
       this.loadingArtists = false;
+    }
+  }
+
+  async loadAlbums() {
+    this.loadingAlbums = true;
+    try {
+      this.availableAlbums = await commands.listAlbums();
+    } catch (e) {
+      this.error = String(e);
+    } finally {
+      this.loadingAlbums = false;
+    }
+  }
+
+  async setAlbums(deviceId: string, albums: AlbumSelection[]) {
+    this.error = null;
+    try {
+      await commands.setDeviceAlbums(deviceId, albums);
+      this.devices = this.devices.map((d) =>
+        d.device.id === deviceId
+          ? { ...d, selected_albums: albums }
+          : d,
+      );
+    } catch (e) {
+      this.error = String(e);
     }
   }
 

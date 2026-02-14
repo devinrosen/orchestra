@@ -26,7 +26,7 @@ Statuses: `[ ]` not started · `[designed]` plan exists · `[implemented]` code 
 
 ## Device Sync
 
-- [ ] **Sync by album** — In addition to selecting artists, allow selecting individual albums to sync to a device. Useful for syncing a few albums from an artist with a large discography without pulling everything.
+- [implemented] **Sync by album** — In addition to selecting artists, allow selecting individual albums to sync to a device. Useful for syncing a few albums from an artist with a large discography without pulling everything.
 - [implemented] **Eject/unmount device button** — Add an eject button to the device card so users can safely unmount a connected device directly from the app without switching to Finder or the system tray.
 
 ## CD Ripping & Conversion

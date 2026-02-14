@@ -53,9 +53,11 @@ pub fn run() {
             commands::device_cmd::list_devices,
             commands::device_cmd::delete_device,
             commands::device_cmd::set_device_artists,
+            commands::device_cmd::set_device_albums,
             commands::device_cmd::compute_device_diff,
             commands::device_cmd::execute_device_sync,
             commands::device_cmd::list_artists,
+            commands::device_cmd::list_albums,
             commands::metadata_cmd::get_track_artwork,
             commands::metadata_cmd::update_track_metadata,
         ])

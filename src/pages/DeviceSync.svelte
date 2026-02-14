@@ -5,7 +5,7 @@
   import DiffView from "../lib/components/DiffView.svelte";
   import ProgressBar from "../lib/components/ProgressBar.svelte";
   import { deviceStore } from "../lib/stores/device.svelte";
-  import type { DetectedVolume } from "../lib/api/types";
+  import type { DetectedVolume, AlbumSelection } from "../lib/api/types";
 
   type SubView = "list" | "configure" | "sync";
   let subView = $state<SubView>("list");
@@ -44,12 +44,14 @@
   function handleConfigure(deviceId: string) {
     configuringDeviceId = deviceId;
     deviceStore.loadArtists();
+    deviceStore.loadAlbums();
     subView = "configure";
   }
 
-  async function handleSaveArtists(selected: string[]) {
+  async function handleSaveSelection(artists: string[], albums: AlbumSelection[]) {
     if (!configuringDeviceId) return;
-    await deviceStore.setArtists(configuringDeviceId, selected);
+    await deviceStore.setArtists(configuringDeviceId, artists);
+    await deviceStore.setAlbums(configuringDeviceId, albums);
     subView = "list";
   }
 
@@ -196,13 +198,15 @@
       </h2>
     </div>
 
-    {#if deviceStore.loadingArtists}
+    {#if deviceStore.loadingArtists || deviceStore.loadingAlbums}
       <div class="loading">Loading artists...</div>
     {:else}
       <ArtistPicker
         artists={deviceStore.availableArtists}
+        albums={deviceStore.availableAlbums}
         selectedArtists={confDevice?.selected_artists ?? []}
-        onSave={handleSaveArtists}
+        selectedAlbums={confDevice?.selected_albums ?? []}
+        onSave={handleSaveSelection}
         onCancel={handleCancelConfigure}
       />
     {/if}

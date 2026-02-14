@@ -14,10 +14,26 @@ pub struct Device {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AlbumSelection {
+    pub artist_name: String,
+    pub album_name: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AlbumSummary {
+    pub artist_name: String,
+    pub album_name: String,
+    pub track_count: usize,
+    pub total_size: u64,
+    pub year: Option<i32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeviceWithStatus {
     pub device: Device,
     pub connected: bool,
     pub selected_artists: Vec<String>,
+    pub selected_albums: Vec<AlbumSelection>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

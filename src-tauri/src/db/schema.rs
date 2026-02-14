@@ -85,6 +85,15 @@ pub fn run_migrations(conn: &Connection) -> Result<(), AppError> {
         );
         CREATE INDEX IF NOT EXISTS idx_device_artist_device ON device_artist_selections(device_id);
 
+        CREATE TABLE IF NOT EXISTS device_album_selections (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            device_id TEXT NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+            artist_name TEXT NOT NULL,
+            album_name TEXT NOT NULL,
+            UNIQUE(device_id, artist_name, album_name)
+        );
+        CREATE INDEX IF NOT EXISTS idx_device_album_device ON device_album_selections(device_id);
+
         CREATE TABLE IF NOT EXISTS device_file_cache (
             device_id TEXT NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
             relative_path TEXT NOT NULL,

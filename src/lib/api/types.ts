@@ -171,10 +171,24 @@ export interface Device {
   last_synced_at: number | null;
 }
 
+export interface AlbumSelection {
+  artist_name: string;
+  album_name: string;
+}
+
+export interface AlbumSummary {
+  artist_name: string;
+  album_name: string;
+  track_count: number;
+  total_size: number;
+  year: number | null;
+}
+
 export interface DeviceWithStatus {
   device: Device;
   connected: boolean;
   selected_artists: string[];
+  selected_albums: AlbumSelection[];
 }
 
 export interface RegisterDeviceRequest {

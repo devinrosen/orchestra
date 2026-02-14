@@ -2,7 +2,7 @@ use rusqlite::{params, Connection};
 use unicode_normalization::UnicodeNormalization;
 
 use crate::error::AppError;
-use crate::models::device::Device;
+use crate::models::device::{AlbumSelection, Device};
 
 /// Normalize a path key for cache lookups (must match device::sync::normalize_path)
 fn normalize_cache_key(p: &str) -> String {
@@ -215,6 +215,41 @@ pub fn set_selected_artists(
     )?;
     for artist in artists {
         stmt.execute(params![device_id, artist])?;
+    }
+    Ok(())
+}
+
+// --- Album selections ---
+
+pub fn get_selected_albums(conn: &Connection, device_id: &str) -> Result<Vec<AlbumSelection>, AppError> {
+    let mut stmt = conn.prepare(
+        "SELECT artist_name, album_name FROM device_album_selections WHERE device_id = ?1 ORDER BY artist_name COLLATE NOCASE, album_name COLLATE NOCASE",
+    )?;
+    let albums = stmt
+        .query_map(params![device_id], |row| {
+            Ok(AlbumSelection {
+                artist_name: row.get(0)?,
+                album_name: row.get(1)?,
+            })
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(albums)
+}
+
+pub fn set_selected_albums(
+    conn: &Connection,
+    device_id: &str,
+    albums: &[AlbumSelection],
+) -> Result<(), AppError> {
+    conn.execute(
+        "DELETE FROM device_album_selections WHERE device_id = ?1",
+        params![device_id],
+    )?;
+    let mut stmt = conn.prepare(
+        "INSERT INTO device_album_selections (device_id, artist_name, album_name) VALUES (?1, ?2, ?3)",
+    )?;
+    for album in albums {
+        stmt.execute(params![device_id, album.artist_name, album.album_name])?;
     }
     Ok(())
 }
