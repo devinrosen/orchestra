@@ -46,6 +46,7 @@ class DeviceStore {
   error = $state<string | null>(null);
   detecting = $state(false);
   loadingArtists = $state(false);
+  ejecting = $state<string | null>(null);
 
   selectedDevice = $derived(
     this.devices.find((d) => d.device.id === this.selectedDeviceId) ?? null,
@@ -101,6 +102,24 @@ class DeviceStore {
       }
     } catch (e) {
       this.error = String(e);
+    }
+  }
+
+  async ejectDevice(deviceId: string) {
+    this.ejecting = deviceId;
+    this.error = null;
+    try {
+      await commands.ejectDevice(deviceId);
+      // Update the device in local state to show as disconnected
+      this.devices = this.devices.map((d) =>
+        d.device.id === deviceId
+          ? { ...d, connected: false, device: { ...d.device, mount_path: null } }
+          : d,
+      );
+    } catch (e) {
+      this.error = String(e);
+    } finally {
+      this.ejecting = null;
     }
   }
 

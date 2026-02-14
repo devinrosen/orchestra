@@ -4,15 +4,19 @@
   let {
     device,
     busy = false,
+    ejecting = false,
     onConfigure,
     onSync,
     onDelete,
+    onEject,
   }: {
     device: DeviceWithStatus;
     busy?: boolean;
+    ejecting?: boolean;
     onConfigure: () => void;
     onSync: () => void;
     onDelete: () => void;
+    onEject: () => void;
   } = $props();
 
   function formatSize(bytes: number): string {
@@ -83,6 +87,16 @@
 
   <div class="device-actions">
     <button class="secondary" onclick={onConfigure}>Configure</button>
+    {#if device.connected}
+      <button
+        class="eject-btn"
+        onclick={onEject}
+        disabled={busy || ejecting}
+        title="Safely eject this device"
+      >
+        {ejecting ? "Ejecting..." : "Eject"}
+      </button>
+    {/if}
     <button
       class="primary"
       onclick={onSync}
@@ -163,6 +177,24 @@
     display: flex;
     gap: 8px;
     margin-top: 4px;
+  }
+
+  .eject-btn {
+    background: none;
+    color: var(--text-secondary);
+    border: 1px solid var(--border);
+    padding: 6px 12px;
+    font-size: 13px;
+  }
+
+  .eject-btn:hover:not(:disabled) {
+    color: var(--text-primary);
+    border-color: var(--text-secondary);
+  }
+
+  .eject-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .danger-btn {

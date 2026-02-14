@@ -137,6 +137,10 @@ export function executeDeviceSync(
   });
 }
 
+export function ejectDevice(deviceId: string): Promise<void> {
+  return invoke("eject_device", { deviceId });
+}
+
 export function listArtists(): Promise<ArtistSummary[]> {
   return invoke("list_artists");
 }
