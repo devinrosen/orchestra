@@ -62,6 +62,15 @@ pub fn run() {
             commands::device_cmd::list_albums,
             commands::metadata_cmd::get_track_artwork,
             commands::metadata_cmd::update_track_metadata,
+            commands::playlist_cmd::create_playlist,
+            commands::playlist_cmd::list_playlists,
+            commands::playlist_cmd::get_playlist,
+            commands::playlist_cmd::update_playlist,
+            commands::playlist_cmd::delete_playlist,
+            commands::playlist_cmd::add_tracks_to_playlist,
+            commands::playlist_cmd::remove_tracks_from_playlist,
+            commands::playlist_cmd::reorder_playlist,
+            commands::playlist_cmd::export_playlist,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

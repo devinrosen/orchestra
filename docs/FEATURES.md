@@ -22,7 +22,7 @@ Statuses: `[ ]` not started · `[designed]` plan exists · `[implemented]` code 
 ## Playback
 
 - [done] **Play music by song or album** — Add audio playback support so users can play individual tracks or full albums directly from the library view.
-- [ ] **Playlist support** — Create, manage, and reorder playlists within the app, with export to M3U/PLS formats for use in other players.
+- [done] **Playlist support** — Create, manage, and reorder playlists within the app, with export to M3U/PLS formats for use in other players.
 
 ## Device Sync
 

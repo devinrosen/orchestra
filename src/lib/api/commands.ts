@@ -18,6 +18,13 @@ import type {
   TrackMetadataUpdate,
   AlbumArt,
   LibraryStats,
+  Playlist,
+  PlaylistWithTracks,
+  CreatePlaylistRequest,
+  UpdatePlaylistRequest,
+  AddTracksRequest,
+  RemoveTracksRequest,
+  ReorderTracksRequest,
 } from "./types";
 
 export function scanDirectory(
@@ -168,4 +175,40 @@ export function getIncompleteTracks(root: string): Promise<Track[]> {
 
 export function getLibraryStats(root: string): Promise<LibraryStats> {
   return invoke("get_library_stats", { root });
+}
+
+export function createPlaylist(request: CreatePlaylistRequest): Promise<PlaylistWithTracks> {
+  return invoke("create_playlist", { request });
+}
+
+export function listPlaylists(): Promise<Playlist[]> {
+  return invoke("list_playlists");
+}
+
+export function getPlaylist(id: string): Promise<PlaylistWithTracks> {
+  return invoke("get_playlist", { id });
+}
+
+export function updatePlaylist(request: UpdatePlaylistRequest): Promise<Playlist> {
+  return invoke("update_playlist", { request });
+}
+
+export function deletePlaylist(id: string): Promise<void> {
+  return invoke("delete_playlist", { id });
+}
+
+export function addTracksToPlaylist(request: AddTracksRequest): Promise<PlaylistWithTracks> {
+  return invoke("add_tracks_to_playlist", { request });
+}
+
+export function removeTracksFromPlaylist(request: RemoveTracksRequest): Promise<PlaylistWithTracks> {
+  return invoke("remove_tracks_from_playlist", { request });
+}
+
+export function reorderPlaylist(request: ReorderTracksRequest): Promise<PlaylistWithTracks> {
+  return invoke("reorder_playlist", { request });
+}
+
+export function exportPlaylist(id: string, format: string, path: string): Promise<void> {
+  return invoke("export_playlist", { id, format, path });
 }

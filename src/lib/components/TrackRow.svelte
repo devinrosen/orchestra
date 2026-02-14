@@ -9,18 +9,27 @@
     titleFallback,
     onPlay,
     onEdit,
+    onAddToPlaylist,
   }: {
     track: Track;
     siblingTracks: Track[];
     titleFallback?: string;
     onPlay?: (track: Track, siblingTracks: Track[]) => void;
     onEdit?: (track: Track) => void;
+    onAddToPlaylist?: (track: Track) => void;
   } = $props();
 
   let isPlaying = $derived(playerStore.currentTrack?.file_path === track.file_path);
 </script>
 
 <div class="track-row" class:now-playing={isPlaying}>
+  {#if onAddToPlaylist}
+    <button
+      class="track-action-btn"
+      onclick={(e) => { e.stopPropagation(); onAddToPlaylist(track); }}
+      title="Add to playlist"
+    >+</button>
+  {/if}
   {#if onPlay}
     <button
       class="track-play-btn"
@@ -57,7 +66,7 @@
     font-weight: 600;
   }
 
-  .track-play-btn {
+  .track-play-btn, .track-action-btn {
     background: none;
     border: none;
     color: var(--text-secondary);
@@ -66,14 +75,21 @@
     opacity: 0;
     transition: opacity 0.15s;
     flex-shrink: 0;
+    cursor: pointer;
   }
 
-  .track-row:hover .track-play-btn {
+  .track-row:hover .track-play-btn,
+  .track-row:hover .track-action-btn {
     opacity: 1;
   }
 
-  .track-play-btn:hover {
+  .track-play-btn:hover, .track-action-btn:hover {
     color: var(--accent);
+  }
+
+  .track-action-btn {
+    font-size: 14px;
+    font-weight: 600;
   }
 
   .track-node {
