@@ -14,6 +14,11 @@ Statuses: `[ ]` not started · `[designed]` plan exists · `[implemented]` code 
 - [done] **Multiple library view modes** — In addition to the current Artist > Album > Track tree, support alternative browse modes: by Album, by Genre, and by Folder. A segmented toggle at the top of the library view switches between modes. Preference persists across restarts. Folder view includes a play button to queue all tracks in a folder.
 - [done] **Library statistics** — Dashboard showing format breakdown, genre distribution, total library size, number of artists/albums/tracks, and average bitrate.
 - [done] **Contextual library search** — Make the search bar filter contextually based on the active view mode. In Artist view, search matches artists and shows them with their albums still expandable. In Album view, search matches albums with tracks still expandable. In Genre view, search matches genres. In Folder view, search matches folder names. The current search only filters individual tracks — this would filter at the top-level grouping instead, preserving the tree structure beneath matches.
+- [ ] **Smart playlists** — Rule-based auto-playlists that update dynamically (e.g., "genre = Jazz AND year > 2000", "added in last 30 days", "bitrate > 256 AND format = FLAC"). Define rules in a builder UI, results are computed from SQLite queries. Combine with ratings/favorites for powerful personal curation.
+- [ ] **Import playlists (M3U/PLS)** — Import M3U and PLS playlist files by matching file paths against the library database. Allows users to bring playlists from other players when migrating to the app.
+- [ ] **Recently added / recently played** — Quick-access section showing tracks scanned in the last N days and recently played tracks. Requires a `played_at` timestamp (or a separate `play_history` table) updated each time a track starts playing.
+- [ ] **Track ratings / favorites** — A heart toggle or 1–5 star rating on tracks. Single column in the tracks table, filterable and sortable in all browse views and usable as a smart playlist criterion.
+- [ ] **Multi-library support** — Support multiple library roots simultaneously. The DB schema already keys tracks by `library_root`, so the main work is UI for managing multiple roots and showing a combined or per-root view in the library browser.
 
 ## UI / UX
 
@@ -29,6 +34,10 @@ Statuses: `[ ]` not started · `[designed]` plan exists · `[implemented]` code 
 - [done] **Playlist support** — Create, manage, and reorder playlists within the app, with export to M3U/PLS formats for use in other players.
 - [done] **Play queue viewer** — Add a button in the player bar to open a panel showing the current play queue (upcoming songs, current track highlighted). Works when playing an album or a playlist. Users can see what's coming next, skip ahead by clicking a track, and reorder or remove items from the queue.
 - [done] **Playback visualization** — Real-time audio visualizations that react to the currently playing track. Include multiple modes: waveform, frequency spectrum (bar graph), and a circular/radial visualizer. Rendered via Canvas or WebGL in a toggleable panel above the player bar. Should use the Web Audio API's AnalyserNode to tap into the audio stream without affecting playback.
+- [ ] **Equalizer** — Graphic EQ using Web Audio API `BiquadFilterNode` bands inserted between the audio source and destination. The AnalyserNode pipeline is already wired up for the visualizer, so adding filter nodes is straightforward. Presets (flat, bass boost, vocal, etc.) plus manual per-band adjustment. Could share panel space with the visualizer.
+- [ ] **Crossfade playback** — Smooth audio transitions between consecutive tracks. Use a second `HTMLAudioElement` that fades in as the current one fades out during the last N seconds of a track. Configurable crossfade duration (0–12 seconds) in Settings. Important for live albums and DJ-style listening.
+- [ ] **Lyrics display** — Show lyrics for the currently playing track in a toggleable panel. First read embedded lyrics from audio file tags (via lofty), then optionally fetch from an external API. Synced (timed) lyrics scroll automatically with playback; plain lyrics display as static text.
+- [ ] **Scrobbling (Last.fm integration)** — Submit play history to Last.fm when a track has been playing for >50% of its duration or >4 minutes. Requires Last.fm API key and user authentication (OAuth). Stores pending scrobbles locally for offline resilience and batch-submits when connectivity returns.
 
 ## Device Sync
 
