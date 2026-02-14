@@ -16,7 +16,12 @@ use sync::progress::CancelToken;
 fn init_database(app: &tauri::App) -> Result<Connection, Box<dyn std::error::Error>> {
     let app_dir = app.path().app_data_dir()?;
     std::fs::create_dir_all(&app_dir)?;
-    let db_path = app_dir.join("music_sync.db");
+    // Migrate legacy database filename
+    let legacy_path = app_dir.join("music_sync.db");
+    let db_path = app_dir.join("orchestra.db");
+    if legacy_path.exists() && !db_path.exists() {
+        std::fs::rename(&legacy_path, &db_path)?;
+    }
     let conn = Connection::open(db_path)?;
     schema::run_migrations(&conn)?;
     Ok(conn)
