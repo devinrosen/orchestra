@@ -19,12 +19,14 @@ Statuses: `[ ]` not started · `[designed]` plan exists · `[implemented]` code 
 - [done] **Song and album metadata viewer/editor** — View and edit metadata (title, artist, album artist, album, track number, disc number, year, genre, album art) for individual tracks or in bulk for an album. Changes should write back to the audio files via lofty and update the database.
 - [done] **Shared track row component** — Extract the duplicated track row markup (play button, track number, title, duration, format, size) from TreeView, AlbumListView, GenreTreeView, and FolderTreeView into a reusable `TrackRow.svelte` component.
 - [ ] **Keyboard shortcuts** — Navigate the library tree, trigger scan/sync, and open editors without using the mouse. Configurable key bindings.
+- [ ] **UI skins (light/dark mode)** — Support light and dark color themes with a toggle in Settings. Respect the OS-level appearance preference by default, with an option to override. Implement via CSS custom properties so all components inherit the active theme. Persist the user's choice across restarts.
 
 ## Playback
 
 - [done] **Play music by song or album** — Add audio playback support so users can play individual tracks or full albums directly from the library view.
 - [done] **Playlist support** — Create, manage, and reorder playlists within the app, with export to M3U/PLS formats for use in other players.
 - [done] **Play queue viewer** — Add a button in the player bar to open a panel showing the current play queue (upcoming songs, current track highlighted). Works when playing an album or a playlist. Users can see what's coming next, skip ahead by clicking a track, and reorder or remove items from the queue.
+- [ ] **Playback visualization** — Real-time audio visualizations that react to the currently playing track. Include multiple modes: waveform, frequency spectrum (bar graph), and a circular/radial visualizer. Rendered via Canvas or WebGL in a toggleable panel above the player bar. Should use the Web Audio API's AnalyserNode to tap into the audio stream without affecting playback.
 
 ## Device Sync
 
