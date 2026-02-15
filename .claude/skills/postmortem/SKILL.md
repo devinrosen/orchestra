@@ -1,3 +1,10 @@
+---
+name: postmortem
+description: Conduct a structured session retrospective (what went well, wrong, improvements)
+disable-model-invocation: false
+context: fork
+---
+
 # Session Postmortem
 
 Conduct a structured retrospective after completing a workflow session.
