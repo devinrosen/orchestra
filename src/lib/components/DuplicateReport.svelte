@@ -131,8 +131,8 @@
 
 <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
 <div class="report-overlay" role="presentation" onclick={onClose}>
-  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions a11y_interactive_supports_focus -->
-  <div class="report-dialog" role="dialog" onclick={(e) => e.stopPropagation()}>
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <div class="report-dialog" role="dialog" tabindex="-1" onclick={(e) => e.stopPropagation()}>
     <div class="report-header">
       <h3>Duplicate Detection</h3>
       <button class="close-btn" onclick={onClose}>&times;</button>

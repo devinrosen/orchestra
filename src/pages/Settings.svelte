@@ -41,10 +41,11 @@
 
       <div class="setting-row">
         <div class="setting-info">
-          <label>Theme</label>
+          <label for="setting-theme">Theme</label>
           <p class="setting-desc">Choose light or dark mode, or follow the OS setting</p>
         </div>
         <select
+          id="setting-theme"
           value={themeStore.preference}
           onchange={(e) => themeStore.setPreference((e.target as HTMLSelectElement).value as ThemePreference)}
         >
