@@ -60,4 +60,12 @@ pub enum ProgressEvent {
         file: String,
         error: String,
     },
+    #[serde(rename = "hash_started")]
+    HashStarted { total: usize },
+    #[serde(rename = "hash_progress")]
+    HashProgress {
+        files_hashed: usize,
+        total_files: usize,
+        current_file: String,
+    },
 }
