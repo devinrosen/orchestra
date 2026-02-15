@@ -3,6 +3,7 @@
   import AlbumHeader from "./AlbumHeader.svelte";
   import TrackRow from "./TrackRow.svelte";
   import PlaylistPicker from "./PlaylistPicker.svelte";
+  import { favoritesStore } from "../stores/favorites.svelte";
 
   let {
     albums = [],
@@ -53,6 +54,8 @@
         onToggle={() => toggleAlbum(albumKey)}
         onPlay={onPlayAlbum ? () => onPlayAlbum(album.tracks) : undefined}
         onEdit={onEditAlbum ? () => onEditAlbum(album.tracks, album.name, album.artist) : undefined}
+        isFavorited={favoritesStore.isFavorite('album', albumKey)}
+        onToggleFavorite={() => favoritesStore.toggle('album', albumKey)}
       />
 
       {#if expandedAlbums.has(albumKey)}

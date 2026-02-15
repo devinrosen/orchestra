@@ -78,6 +78,11 @@ pub fn run() {
             commands::playlist_cmd::remove_tracks_from_playlist,
             commands::playlist_cmd::reorder_playlist,
             commands::playlist_cmd::export_playlist,
+            commands::favorite_cmd::toggle_favorite,
+            commands::favorite_cmd::is_favorite,
+            commands::favorite_cmd::list_favorites,
+            commands::favorite_cmd::list_all_favorites,
+            commands::favorite_cmd::get_favorite_tracks,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

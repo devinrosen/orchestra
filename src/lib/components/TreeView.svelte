@@ -3,6 +3,7 @@
   import AlbumHeader from "./AlbumHeader.svelte";
   import TrackRow from "./TrackRow.svelte";
   import PlaylistPicker from "./PlaylistPicker.svelte";
+  import { favoritesStore } from "../stores/favorites.svelte";
 
   let {
     artists = [],
@@ -55,6 +56,12 @@
         <span class="artist-name">{artist.name}</span>
         <span class="count">{artist.albums.length} album{artist.albums.length !== 1 ? "s" : ""}</span>
       </button>
+      <button
+        class="artist-fav-btn"
+        class:favorited={favoritesStore.isFavorite('artist', artist.name)}
+        onclick={(e) => { e.stopPropagation(); favoritesStore.toggle('artist', artist.name); }}
+        title={favoritesStore.isFavorite('artist', artist.name) ? "Remove from favorites" : "Add to favorites"}
+      >{favoritesStore.isFavorite('artist', artist.name) ? "\u2665" : "\u2661"}</button>
 
       {#if expandedArtists.has(artist.name)}
         <div class="children">
@@ -69,6 +76,8 @@
                 onToggle={() => toggleAlbum(albumKey)}
                 onPlay={onPlayAlbum ? () => onPlayAlbum(album.tracks) : undefined}
                 onEdit={onEditAlbum ? () => onEditAlbum(album.tracks, album.name, artist.name) : undefined}
+                isFavorited={favoritesStore.isFavorite('album', artist.name + "\0" + album.name)}
+                onToggleFavorite={() => favoritesStore.toggle('album', artist.name + "\0" + album.name)}
               />
 
               {#if expandedAlbums.has(albumKey)}
@@ -104,5 +113,31 @@
 
   .artist-name {
     font-weight: 600;
+  }
+
+  .artist-fav-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 14px;
+    padding: 4px 8px;
+    border-radius: var(--radius);
+    opacity: 0;
+    transition: opacity 0.15s;
+    cursor: pointer;
+  }
+
+  .artist-node:hover .artist-fav-btn {
+    opacity: 1;
+  }
+
+  .artist-fav-btn.favorited {
+    color: var(--accent);
+    opacity: 1;
+  }
+
+  .artist-fav-btn:hover {
+    color: var(--accent);
+    background: var(--bg-tertiary);
   }
 </style>

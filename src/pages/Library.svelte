@@ -86,9 +86,9 @@
     const tree = libraryStore.tree;
     if (!tree) return "";
     const mode = libraryStore.viewMode;
-    if (mode === "artist") return `${libraryStore.filteredArtists.length} artists`;
-    if (mode === "album") return `${libraryStore.filteredAlbumEntries.length} albums`;
-    if (mode === "genre") return `${libraryStore.filteredGenreNodes.length} genres`;
+    if (mode === "artist") return `${libraryStore.displayArtists.length} artists`;
+    if (mode === "album") return `${libraryStore.displayAlbumEntries.length} albums`;
+    if (mode === "genre") return `${libraryStore.displayGenreNodes.length} genres`;
     return "";
   }
 
@@ -97,12 +97,12 @@
   }
 
   function hasNoResults(): boolean {
-    if (!isSearchActive()) return false;
+    if (!isSearchActive() && !libraryStore.favoritesOnly) return false;
     const mode = libraryStore.viewMode;
-    if (mode === "artist") return libraryStore.filteredArtists.length === 0;
-    if (mode === "album") return libraryStore.filteredAlbumEntries.length === 0;
-    if (mode === "genre") return libraryStore.filteredGenreNodes.length === 0;
-    if (mode === "folder") return libraryStore.filteredFolderTree === null;
+    if (mode === "artist") return libraryStore.displayArtists.length === 0;
+    if (mode === "album") return libraryStore.displayAlbumEntries.length === 0;
+    if (mode === "genre") return libraryStore.displayGenreNodes.length === 0;
+    if (mode === "folder") return libraryStore.displayFolderTree === null;
     return false;
   }
 
@@ -149,23 +149,31 @@
         class="search-input"
       />
 
-      <div class="view-mode-toggle">
-        {#each viewModes as { mode, label }}
-          <button
-            class="mode-btn"
-            class:active={libraryStore.viewMode === mode}
-            onclick={() => libraryStore.setViewMode(mode)}
-          >
-            {label}
-          </button>
-        {/each}
+      <div class="view-controls">
+        <div class="view-mode-toggle">
+          {#each viewModes as { mode, label }}
+            <button
+              class="mode-btn"
+              class:active={libraryStore.viewMode === mode}
+              onclick={() => libraryStore.setViewMode(mode)}
+            >
+              {label}
+            </button>
+          {/each}
+        </div>
+        <button
+          class="fav-filter-btn"
+          class:active={libraryStore.favoritesOnly}
+          onclick={() => libraryStore.favoritesOnly = !libraryStore.favoritesOnly}
+          title={libraryStore.favoritesOnly ? "Show all" : "Show favorites only"}
+        >{libraryStore.favoritesOnly ? "\u2665 Favorites" : "\u2661 Favorites"}</button>
       </div>
 
       {#if hasNoResults()}
         <div class="no-results">{noResultsMessages[libraryStore.viewMode]}</div>
       {:else if libraryStore.viewMode === "artist"}
         <TreeView
-          artists={libraryStore.filteredArtists}
+          artists={libraryStore.displayArtists}
           onEditTrack={handleEditTrack}
           onEditAlbum={handleEditAlbum}
           onPlayTrack={handlePlayTrack}
@@ -173,7 +181,7 @@
         />
       {:else if libraryStore.viewMode === "album"}
         <AlbumListView
-          albums={libraryStore.filteredAlbumEntries}
+          albums={libraryStore.displayAlbumEntries}
           onEditTrack={handleEditTrack}
           onEditAlbum={handleEditAlbum}
           onPlayTrack={handlePlayTrack}
@@ -181,15 +189,15 @@
         />
       {:else if libraryStore.viewMode === "genre"}
         <GenreTreeView
-          genres={libraryStore.filteredGenreNodes}
+          genres={libraryStore.displayGenreNodes}
           onEditTrack={handleEditTrack}
           onEditAlbum={handleEditAlbum}
           onPlayTrack={handlePlayTrack}
           onPlayAlbum={handlePlayAlbum}
         />
-      {:else if libraryStore.viewMode === "folder" && libraryStore.filteredFolderTree}
+      {:else if libraryStore.viewMode === "folder" && libraryStore.displayFolderTree}
         <FolderTreeView
-          root={libraryStore.filteredFolderTree}
+          root={libraryStore.displayFolderTree}
           onEditTrack={handleEditTrack}
           onPlayTrack={handlePlayTrack}
           onPlayFolder={handlePlayAlbum}
@@ -362,6 +370,13 @@
     border-radius: var(--radius);
   }
 
+  .view-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
   .view-mode-toggle {
     display: flex;
     gap: 0;
@@ -370,6 +385,27 @@
     border-radius: var(--radius);
     padding: 2px;
     width: fit-content;
+  }
+
+  .fav-filter-btn {
+    background: var(--bg-secondary);
+    border: none;
+    color: var(--text-secondary);
+    padding: 5px 14px;
+    font-size: 13px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .fav-filter-btn:hover {
+    color: var(--text-primary);
+  }
+
+  .fav-filter-btn.active {
+    background: var(--accent);
+    color: var(--on-accent);
+    font-weight: 500;
   }
 
   .mode-btn {

@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Track } from "../api/types";
   import { playerStore } from "../stores/player.svelte";
+  import { favoritesStore } from "../stores/favorites.svelte";
   import { formatDuration, formatSize } from "../utils/format";
 
   let {
@@ -20,9 +21,16 @@
   } = $props();
 
   let isPlaying = $derived(playerStore.currentTrack?.file_path === track.file_path);
+  let isFav = $derived(track.id != null && favoritesStore.isFavorite('track', String(track.id)));
 </script>
 
 <div class="track-row" class:now-playing={isPlaying}>
+  <button
+    class="track-fav-btn"
+    class:favorited={isFav}
+    onclick={(e) => { e.stopPropagation(); if (track.id != null) favoritesStore.toggle('track', String(track.id)); }}
+    title={isFav ? "Remove from favorites" : "Add to favorites"}
+  >{isFav ? "\u2665" : "\u2661"}</button>
   {#if onAddToPlaylist}
     <button
       class="track-action-btn"
@@ -64,6 +72,31 @@
   .track-row.now-playing .track-title {
     color: var(--accent);
     font-weight: 600;
+  }
+
+  .track-fav-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 13px;
+    padding: 4px 4px 4px 8px;
+    opacity: 0;
+    transition: opacity 0.15s;
+    flex-shrink: 0;
+    cursor: pointer;
+  }
+
+  .track-fav-btn.favorited {
+    color: var(--accent);
+    opacity: 1;
+  }
+
+  .track-row:hover .track-fav-btn {
+    opacity: 1;
+  }
+
+  .track-fav-btn:hover {
+    color: var(--accent);
   }
 
   .track-play-btn, .track-action-btn {

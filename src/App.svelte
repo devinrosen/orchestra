@@ -8,6 +8,7 @@
   import Settings from "./pages/Settings.svelte";
   import Statistics from "./pages/Statistics.svelte";
   import Playlists from "./pages/Playlists.svelte";
+  import Favorites from "./pages/Favorites.svelte";
   import GlobalStatusBar from "./lib/components/GlobalStatusBar.svelte";
   import NowPlayingBar from "./lib/components/NowPlayingBar.svelte";
   import VisualizerPanel from "./lib/components/VisualizerPanel.svelte";
@@ -16,8 +17,9 @@
   import { playerStore } from "./lib/stores/player.svelte";
   import { playlistStore } from "./lib/stores/playlist.svelte";
   import { themeStore } from "./lib/stores/theme.svelte";
+  import { favoritesStore } from "./lib/stores/favorites.svelte";
 
-  type Page = "library" | "statistics" | "playlists" | "profiles" | "sync-preview" | "devices" | "settings";
+  type Page = "library" | "favorites" | "statistics" | "playlists" | "profiles" | "sync-preview" | "devices" | "settings";
 
   let currentPage = $state<Page>("library");
   let pageData = $state<Record<string, unknown>>({});
@@ -26,6 +28,7 @@
     libraryStore.init();
     playlistStore.load();
     themeStore.init();
+    favoritesStore.load();
   });
 
   $effect(() => {
@@ -39,6 +42,7 @@
 
   const navItems: { page: Page; label: string }[] = [
     { page: "library", label: "Library" },
+    { page: "favorites", label: "Favorites" },
     { page: "statistics", label: "Statistics" },
     { page: "playlists", label: "Playlists" },
     { page: "profiles", label: "Sync Profiles" },
@@ -66,6 +70,8 @@
     <main class="content">
     {#if currentPage === "library"}
       <Library />
+    {:else if currentPage === "favorites"}
+      <Favorites />
     {:else if currentPage === "statistics"}
       <Statistics />
     {:else if currentPage === "playlists"}

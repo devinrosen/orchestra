@@ -26,6 +26,7 @@ import type {
   AddTracksRequest,
   RemoveTracksRequest,
   ReorderTracksRequest,
+  Favorite,
 } from "./types";
 
 export function scanDirectory(
@@ -228,4 +229,24 @@ export function deleteDuplicateTracks(
   filePaths: string[],
 ): Promise<number> {
   return invoke("delete_duplicate_tracks", { trackIds, filePaths });
+}
+
+export function toggleFavorite(entityType: string, entityId: string): Promise<boolean> {
+  return invoke("toggle_favorite", { entityType, entityId });
+}
+
+export function isFavorite(entityType: string, entityId: string): Promise<boolean> {
+  return invoke("is_favorite", { entityType, entityId });
+}
+
+export function listFavorites(entityType: string): Promise<Favorite[]> {
+  return invoke("list_favorites", { entityType });
+}
+
+export function listAllFavorites(): Promise<Favorite[]> {
+  return invoke("list_all_favorites");
+}
+
+export function getFavoriteTracks(): Promise<Track[]> {
+  return invoke("get_favorite_tracks");
 }

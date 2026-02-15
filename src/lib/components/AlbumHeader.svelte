@@ -6,9 +6,11 @@
     trackCount,
     expanded,
     boldName = false,
+    isFavorited = false,
     onToggle,
     onPlay,
     onEdit,
+    onToggleFavorite,
   }: {
     albumName: string;
     artistName?: string;
@@ -16,9 +18,11 @@
     trackCount: number;
     expanded: boolean;
     boldName?: boolean;
+    isFavorited?: boolean;
     onToggle: () => void;
     onPlay?: () => void;
     onEdit?: () => void;
+    onToggleFavorite?: () => void;
   } = $props();
 </script>
 
@@ -45,6 +49,14 @@
       onclick={(e) => { e.stopPropagation(); onEdit(); }}
       title="Edit album metadata"
     >&#9998;</button>
+  {/if}
+  {#if onToggleFavorite}
+    <button
+      class="action-btn fav-btn"
+      class:favorited={isFavorited}
+      onclick={(e) => { e.stopPropagation(); onToggleFavorite(); }}
+      title={isFavorited ? "Remove from favorites" : "Add to favorites"}
+    >{isFavorited ? "\u2665" : "\u2661"}</button>
   {/if}
 </div>
 
@@ -98,5 +110,10 @@
 
   .play-album-btn {
     font-size: 12px;
+  }
+
+  .fav-btn.favorited {
+    color: var(--accent);
+    opacity: 1;
   }
 </style>

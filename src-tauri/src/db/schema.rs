@@ -144,5 +144,18 @@ pub fn run_migrations(conn: &Connection) -> Result<(), AppError> {
         )?;
     }
 
+    conn.execute_batch(
+        "
+        CREATE TABLE IF NOT EXISTS favorites (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entity_type TEXT NOT NULL,
+            entity_id TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            UNIQUE(entity_type, entity_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_favorites_type ON favorites(entity_type);
+        ",
+    )?;
+
     Ok(())
 }

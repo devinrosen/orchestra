@@ -279,6 +279,12 @@ export interface RemoveTracksRequest {
   track_ids: number[];
 }
 
+export interface Favorite {
+  entity_type: string;
+  entity_id: string;
+  created_at: number;
+}
+
 export type DuplicateMatchType = "content_hash" | "metadata_similarity";
 
 export interface DuplicateGroup {

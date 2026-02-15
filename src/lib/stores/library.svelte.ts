@@ -1,6 +1,19 @@
 import type { LibraryTree, Track, ProgressEvent, LibraryViewMode, ArtistNode, AlbumEntry, GenreNode, FolderNode } from "../api/types";
 import * as commands from "../api/commands";
 import { flattenTree, groupByAlbum, groupByGenre, groupByFolder, filterArtists, filterAlbums, filterGenres, filterFolders } from "../utils/library-grouping";
+import { favoritesStore } from "./favorites.svelte";
+
+function filterFolderByFavorites(node: FolderNode): FolderNode | null {
+  const filteredTracks = node.tracks.filter(
+    (t) => t.id != null && favoritesStore.isFavorite('track', String(t.id))
+  );
+  const filteredChildren = node.children
+    .map((c) => filterFolderByFavorites(c))
+    .filter((c): c is FolderNode => c !== null);
+
+  if (filteredTracks.length === 0 && filteredChildren.length === 0) return null;
+  return { ...node, tracks: filteredTracks, children: filteredChildren };
+}
 
 class LibraryStore {
   tree = $state<LibraryTree | null>(null);
@@ -57,6 +70,37 @@ class LibraryStore {
           ? filterFolders(this.folderTree, this.searchQuery)
           : this.folderTree)
       : null
+  );
+
+  favoritesOnly = $state(false);
+
+  displayArtists = $derived<ArtistNode[]>(
+    this.favoritesOnly
+      ? this.filteredArtists.filter((a) => favoritesStore.isFavorite('artist', a.name))
+      : this.filteredArtists
+  );
+
+  displayAlbumEntries = $derived<AlbumEntry[]>(
+    this.favoritesOnly
+      ? this.filteredAlbumEntries.filter((a) => favoritesStore.isFavorite('album', a.artist + "\0" + a.name))
+      : this.filteredAlbumEntries
+  );
+
+  displayGenreNodes = $derived<GenreNode[]>(
+    this.favoritesOnly
+      ? this.filteredGenreNodes
+          .map((g) => ({
+            ...g,
+            albums: g.albums.filter((a) => favoritesStore.isFavorite('album', a.artist + "\0" + a.name)),
+          }))
+          .filter((g) => g.albums.length > 0)
+      : this.filteredGenreNodes
+  );
+
+  displayFolderTree = $derived<FolderNode | null>(
+    this.favoritesOnly && this.filteredFolderTree
+      ? filterFolderByFavorites(this.filteredFolderTree)
+      : this.filteredFolderTree
   );
 
   async setViewMode(mode: LibraryViewMode) {

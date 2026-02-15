@@ -7,7 +7,7 @@ use crate::models::duplicate::{DuplicateGroup, DuplicateMatchType};
 use crate::models::track::{AlbumNode, ArtistNode, FormatStat, GenreStat, LibraryStats, LibraryTree, Track};
 
 /// Maps a row from a SELECT that returns all 19 Track columns (id first) to a Track struct.
-fn track_from_row(row: &rusqlite::Row) -> rusqlite::Result<Track> {
+pub(crate) fn track_from_row(row: &rusqlite::Row) -> rusqlite::Result<Track> {
     Ok(Track {
         id: Some(row.get(0)?),
         file_path: row.get(1)?,
