@@ -1,6 +1,7 @@
 <script lang="ts">
-  import type { DuplicateResult, DuplicateGroup, DuplicateMatchType } from "../api/types";
-  import { findDuplicates, deleteDuplicateTracks } from "../api/commands";
+  import type { DuplicateGroup, DuplicateMatchType } from "../api/types";
+  import { deleteDuplicateTracks } from "../api/commands";
+  import { duplicatesStore } from "../stores/duplicates.svelte";
 
   let {
     libraryRoot,
@@ -10,14 +11,13 @@
     onClose: () => void;
   } = $props();
 
-  let result = $state<DuplicateResult | null>(null);
-  let loading = $state(true);
-  let hashing = $state(false);
-  let hashProgress = $state({ current: 0, total: 0 });
-  let error = $state<string | null>(null);
   let filter = $state<"all" | "content_hash" | "metadata_similarity">("all");
   let selectedForDeletion = $state(new Map<number, string>());
   let deleting = $state(false);
+
+  const loading = $derived(duplicatesStore.phase === "hashing");
+  const result = $derived(duplicatesStore.result);
+  const error = $derived(duplicatesStore.error);
 
   const filteredGroups = $derived(
     result
@@ -57,28 +57,6 @@
     return type === "content_hash" ? "HASH" : "METADATA";
   }
 
-  async function loadDuplicates() {
-    loading = true;
-    hashing = false;
-    error = null;
-    selectedForDeletion = new Map();
-    try {
-      result = await findDuplicates(libraryRoot, (event) => {
-        if (event.type === "scan_progress") {
-          hashing = true;
-          hashProgress = { current: event.files_processed, total: event.files_found };
-        } else if (event.type === "scan_complete") {
-          hashing = false;
-        }
-      });
-    } catch (e) {
-      error = String(e);
-    } finally {
-      loading = false;
-      hashing = false;
-    }
-  }
-
   function toggleSelection(trackId: number, filePath: string) {
     const next = new Map(selectedForDeletion);
     if (next.has(trackId)) {
@@ -116,16 +94,20 @@
       const trackIds = Array.from(selectedForDeletion.keys());
       const filePaths = Array.from(selectedForDeletion.values());
       await deleteDuplicateTracks(trackIds, filePaths);
-      await loadDuplicates();
+      selectedForDeletion = new Map();
+      duplicatesStore.reset();
+      await duplicatesStore.run(libraryRoot);
     } catch (e) {
-      error = String(e);
+      // error surfaced via duplicatesStore.error
     } finally {
       deleting = false;
     }
   }
 
   $effect(() => {
-    loadDuplicates();
+    if (duplicatesStore.phase === "idle") {
+      duplicatesStore.run(libraryRoot);
+    }
   });
 </script>
 
@@ -140,11 +122,7 @@
 
     {#if loading}
       <div class="loading">
-        {#if hashing}
-          Hashing tracks... {hashProgress.current}/{hashProgress.total}
-        {:else}
-          Scanning for duplicates...
-        {/if}
+        Hashing tracks... {duplicatesStore.hashProgress.filesHashed}/{duplicatesStore.hashProgress.totalFiles}
       </div>
     {:else if error}
       <div class="error-banner">{error}</div>
@@ -220,7 +198,7 @@
       </div>
 
       <div class="report-actions">
-        <button class="secondary" onclick={loadDuplicates}>Refresh</button>
+        <button class="secondary" onclick={() => { duplicatesStore.reset(); duplicatesStore.run(libraryRoot); }}>Refresh</button>
         <button
           class="primary danger-btn"
           disabled={selectedCount === 0 || deleting}
