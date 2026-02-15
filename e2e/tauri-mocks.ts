@@ -170,6 +170,36 @@ export const tauriMockScript = /* js */ `
   let callbackId = 0;
   const callbacks = {};
 
+  const smartPlaylists = [
+    {
+      id: "sp-1",
+      name: "Progressive Rock",
+      rule: { type: "condition", field: "genre", op: "equals", value: "Progressive Rock" },
+      created_at: 1700000000,
+      updated_at: 1700100000,
+    },
+    {
+      id: "sp-2",
+      name: "Recent Electronic",
+      rule: {
+        type: "group",
+        operator: "and",
+        rules: [
+          { type: "condition", field: "genre", op: "equals", value: "Electronic" },
+          { type: "condition", field: "year", op: "greater_than", value: "2000" },
+        ],
+      },
+      created_at: 1700000000,
+      updated_at: 1700200000,
+    },
+  ];
+
+  const smartPlaylistTracks = tracks.slice(0, 5);
+
+  function makeSmartPlaylistWithTracks(sp) {
+    return { playlist: sp, tracks: smartPlaylistTracks };
+  }
+
   const commandHandlers = {
     get_setting: (args) => {
       const entry = allSettings.find(([k]) => k === args.key);
@@ -193,6 +223,35 @@ export const tauriMockScript = /* js */ `
     list_favorites: () => [],
     list_all_favorites: () => [],
     get_favorite_tracks: () => [],
+    list_smart_playlists: () => smartPlaylists,
+    create_smart_playlist: (args) => {
+      const sp = {
+        id: "sp-new-" + Date.now(),
+        name: args.request.name,
+        rule: args.request.rule,
+        created_at: Math.floor(Date.now() / 1000),
+        updated_at: Math.floor(Date.now() / 1000),
+      };
+      return makeSmartPlaylistWithTracks(sp);
+    },
+    get_smart_playlist: (args) => {
+      const sp = smartPlaylists.find((p) => p.id === args.id) || smartPlaylists[0];
+      return makeSmartPlaylistWithTracks(sp);
+    },
+    evaluate_smart_playlist: (args) => {
+      const sp = smartPlaylists.find((p) => p.id === args.id) || smartPlaylists[0];
+      return makeSmartPlaylistWithTracks(sp);
+    },
+    update_smart_playlist: (args) => {
+      const sp = smartPlaylists.find((p) => p.id === args.request.id) || smartPlaylists[0];
+      return {
+        ...sp,
+        name: args.request.name ?? sp.name,
+        rule: args.request.rule ?? sp.rule,
+        updated_at: Math.floor(Date.now() / 1000),
+      };
+    },
+    delete_smart_playlist: () => null,
   };
 
   window.__TAURI_INTERNALS__ = {

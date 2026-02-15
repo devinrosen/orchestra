@@ -298,3 +298,37 @@ export interface DuplicateResult {
   total_duplicate_tracks: number;
   total_wasted_bytes: number;
 }
+
+export interface RuleCondition {
+  field: string;
+  op: string;
+  value: string;
+}
+
+export type Rule =
+  | { type: 'condition'; field: string; op: string; value: string }
+  | { type: 'group'; operator: 'and' | 'or'; rules: Rule[] };
+
+export interface SmartPlaylist {
+  id: string;
+  name: string;
+  rule: Rule;
+  created_at: number;
+  updated_at: number;
+}
+
+export interface SmartPlaylistWithTracks {
+  playlist: SmartPlaylist;
+  tracks: Track[];
+}
+
+export interface CreateSmartPlaylistRequest {
+  name: string;
+  rule: Rule;
+}
+
+export interface UpdateSmartPlaylistRequest {
+  id: string;
+  name?: string;
+  rule?: Rule;
+}

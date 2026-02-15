@@ -8,6 +8,7 @@
   import Settings from "./pages/Settings.svelte";
   import Statistics from "./pages/Statistics.svelte";
   import Playlists from "./pages/Playlists.svelte";
+  import SmartPlaylists from "./pages/SmartPlaylists.svelte";
   import Favorites from "./pages/Favorites.svelte";
   import GlobalStatusBar from "./lib/components/GlobalStatusBar.svelte";
   import NowPlayingBar from "./lib/components/NowPlayingBar.svelte";
@@ -16,10 +17,11 @@
   import { libraryStore } from "./lib/stores/library.svelte";
   import { playerStore } from "./lib/stores/player.svelte";
   import { playlistStore } from "./lib/stores/playlist.svelte";
+  import { smartPlaylistStore } from "./lib/stores/smartPlaylist.svelte";
   import { themeStore } from "./lib/stores/theme.svelte";
   import { favoritesStore } from "./lib/stores/favorites.svelte";
 
-  type Page = "library" | "favorites" | "statistics" | "playlists" | "profiles" | "sync-preview" | "devices" | "settings";
+  type Page = "library" | "favorites" | "statistics" | "playlists" | "smart-playlists" | "profiles" | "sync-preview" | "devices" | "settings";
 
   let currentPage = $state<Page>("library");
   let pageData = $state<Record<string, unknown>>({});
@@ -27,6 +29,7 @@
   onMount(() => {
     libraryStore.init();
     playlistStore.load();
+    smartPlaylistStore.load();
     themeStore.init();
     favoritesStore.load();
   });
@@ -45,6 +48,7 @@
     { page: "favorites", label: "Favorites" },
     { page: "statistics", label: "Statistics" },
     { page: "playlists", label: "Playlists" },
+    { page: "smart-playlists", label: "Smart Playlists" },
     { page: "profiles", label: "Sync Profiles" },
     { page: "devices", label: "Devices" },
     { page: "settings", label: "Settings" },
@@ -76,6 +80,8 @@
       <Statistics />
     {:else if currentPage === "playlists"}
       <Playlists />
+    {:else if currentPage === "smart-playlists"}
+      <SmartPlaylists />
     {:else if currentPage === "profiles"}
       <SyncProfiles onNavigate={navigate} />
     {:else if currentPage === "sync-preview"}

@@ -27,6 +27,10 @@ import type {
   RemoveTracksRequest,
   ReorderTracksRequest,
   Favorite,
+  SmartPlaylist,
+  SmartPlaylistWithTracks,
+  CreateSmartPlaylistRequest,
+  UpdateSmartPlaylistRequest,
 } from "./types";
 
 export function scanDirectory(
@@ -249,4 +253,28 @@ export function listAllFavorites(): Promise<Favorite[]> {
 
 export function getFavoriteTracks(): Promise<Track[]> {
   return invoke("get_favorite_tracks");
+}
+
+export function createSmartPlaylist(request: CreateSmartPlaylistRequest): Promise<SmartPlaylistWithTracks> {
+  return invoke('create_smart_playlist', { request });
+}
+
+export function listSmartPlaylists(): Promise<SmartPlaylist[]> {
+  return invoke('list_smart_playlists');
+}
+
+export function getSmartPlaylist(id: string): Promise<SmartPlaylistWithTracks> {
+  return invoke('get_smart_playlist', { id });
+}
+
+export function updateSmartPlaylist(request: UpdateSmartPlaylistRequest): Promise<SmartPlaylist> {
+  return invoke('update_smart_playlist', { request });
+}
+
+export function deleteSmartPlaylist(id: string): Promise<void> {
+  return invoke('delete_smart_playlist', { id });
+}
+
+export function evaluateSmartPlaylist(id: string): Promise<SmartPlaylistWithTracks> {
+  return invoke('evaluate_smart_playlist', { id });
 }
