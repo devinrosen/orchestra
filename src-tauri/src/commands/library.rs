@@ -224,31 +224,35 @@ pub async fn get_library_stats(
     library_repo::get_library_stats(&conn, &root)
 }
 
-#[tauri::command]
-pub async fn find_duplicates(
-    db: tauri::State<'_, Mutex<Connection>>,
-    root: String,
-    on_progress: Channel<ProgressEvent>,
-) -> Result<DuplicateResult, AppError> {
-    // Phase 1: Hash all un-hashed tracks
+/// Hash all un-hashed tracks for the given library root, calling `on_event` for each
+/// progress event. Returns the number of tracks hashed.
+///
+/// This function is extracted from `find_duplicates` so that the progress-event logic
+/// can be unit-tested without a live Tauri `Channel`.
+fn hash_unhashed_tracks(
+    db: &Mutex<Connection>,
+    root: &str,
+    mut on_event: impl FnMut(ProgressEvent),
+) -> Result<usize, AppError> {
     let unhashed = {
         let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
-        library_repo::get_tracks_without_hash(&conn, &root)?
+        library_repo::get_tracks_without_hash(&conn, root)?
     };
 
     let total = unhashed.len();
+    if total > 0 {
+        on_event(ProgressEvent::HashStarted { total });
+    }
     for (i, (id, file_path)) in unhashed.iter().enumerate() {
-        if i % 10 == 0 {
-            let _ = on_progress.send(ProgressEvent::ScanProgress {
-                files_found: total,
-                files_processed: i,
+        if i % 10 == 0 || i == total - 1 {
+            on_event(ProgressEvent::HashProgress {
+                files_hashed: i,
+                total_files: total,
                 current_file: file_path
                     .rsplit('/')
                     .next()
                     .unwrap_or(file_path)
                     .to_string(),
-                dirs_total: 0,
-                dirs_completed: 0,
             });
         }
         match hasher::hash_file(Path::new(file_path)) {
@@ -261,6 +265,19 @@ pub async fn find_duplicates(
             }
         }
     }
+    Ok(total)
+}
+
+#[tauri::command]
+pub async fn find_duplicates(
+    db: tauri::State<'_, Mutex<Connection>>,
+    root: String,
+    on_progress: Channel<ProgressEvent>,
+) -> Result<DuplicateResult, AppError> {
+    // Phase 1: Hash all un-hashed tracks
+    let total = hash_unhashed_tracks(&db, &root, |event| {
+        let _ = on_progress.send(event);
+    })?;
 
     // Phase 2: Query for duplicates
     let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
@@ -304,4 +321,86 @@ pub async fn delete_duplicate_tracks(
     // Remove from database
     let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
     library_repo::delete_tracks_by_ids(&conn, &track_ids)
+}
+
+#[cfg(test)]
+mod hash_progress_tests {
+    use super::*;
+    use crate::db::schema;
+    use rusqlite::Connection;
+    use std::sync::Mutex;
+    use tempfile::TempDir;
+
+    fn setup_db() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::run_migrations(&conn).unwrap();
+        conn
+    }
+
+    /// Insert a track whose file_path points to a real file on disk.
+    fn insert_track_with_file(conn: &Connection, tmp: &TempDir, name: &str) -> String {
+        let file_path = tmp.path().join(name);
+        std::fs::write(&file_path, b"fake audio content").unwrap();
+        let path_str = file_path.to_string_lossy().to_string();
+        conn.execute(
+            "INSERT INTO tracks (file_path, relative_path, library_root, format, file_size, modified_at)
+             VALUES (?1, ?2, '/music', 'flac', 1000, 0)",
+            rusqlite::params![path_str, name],
+        )
+        .unwrap();
+        path_str
+    }
+
+    #[test]
+    fn test_hash_progress_events_emitted() {
+        let tmp = TempDir::new().unwrap();
+        let conn = setup_db();
+
+        // Insert 3 un-hashed tracks whose files exist on disk
+        insert_track_with_file(&conn, &tmp, "track1.flac");
+        insert_track_with_file(&conn, &tmp, "track2.flac");
+        insert_track_with_file(&conn, &tmp, "track3.flac");
+
+        let db = Mutex::new(conn);
+        let mut collected: Vec<ProgressEvent> = Vec::new();
+        hash_unhashed_tracks(&db, "/music", |evt| collected.push(evt)).unwrap();
+
+        // Must have exactly one HashStarted with total = 3
+        let started: Vec<_> = collected
+            .iter()
+            .filter(|e| matches!(e, ProgressEvent::HashStarted { total: 3 }))
+            .collect();
+        assert_eq!(started.len(), 1, "expected exactly one HashStarted {{ total: 3 }}");
+
+        // Must have at least one HashProgress with total_files = 3
+        let progress: Vec<_> = collected
+            .iter()
+            .filter(|e| matches!(e, ProgressEvent::HashProgress { total_files: 3, .. }))
+            .collect();
+        assert!(!progress.is_empty(), "expected at least one HashProgress event");
+    }
+
+    #[test]
+    fn test_hash_progress_zero_unhashed() {
+        let conn = setup_db();
+
+        // Insert a track that already has a hash — nothing to hash
+        conn.execute(
+            "INSERT INTO tracks (file_path, relative_path, library_root, format, file_size, modified_at, hash)
+             VALUES ('/music/prehashed.flac', 'prehashed.flac', '/music', 'flac', 1000, 0, 'abc123')",
+            [],
+        )
+        .unwrap();
+
+        let db = Mutex::new(conn);
+        let mut collected: Vec<ProgressEvent> = Vec::new();
+        let total = hash_unhashed_tracks(&db, "/music", |evt| collected.push(evt)).unwrap();
+
+        // total == 0, no HashStarted should be emitted
+        assert_eq!(total, 0);
+        assert!(
+            collected.is_empty(),
+            "expected no events when all tracks are already hashed"
+        );
+    }
 }
