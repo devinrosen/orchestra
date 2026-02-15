@@ -18,7 +18,7 @@ Statuses: `[ ]` not started · `[designed]` plan exists · `[implemented]` code 
 - [ ] **Import playlists (M3U/PLS)** — Import M3U and PLS playlist files by matching file paths against the library database. Allows users to bring playlists from other players when migrating to the app.
 - [ ] **Recently added / recently played** — Quick-access section showing tracks scanned in the last N days and recently played tracks. Requires a `played_at` timestamp (or a separate `play_history` table) updated each time a track starts playing.
 - [done] **Favorites** — Heart-toggle to favorite artists, albums, or tracks. A dedicated Favorites page in the left sidebar shows all favorited items in three collapsible sections (Artists, Albums, Tracks). Library browse views get a "Favorites" filter toggle to show only favorited items in the current view mode. Requires a `favorites` table keyed by `(entity_type, entity_id)` to support all three entity types.
-- [ ] **Multi-library support** — Support multiple library roots simultaneously. The DB schema already keys tracks by `library_root`, so the main work is UI for managing multiple roots and showing a combined or per-root view in the library browser.
+- [implemented] **Multi-library support** — Support multiple library roots simultaneously. The DB schema already keys tracks by `library_root`, so the main work is UI for managing multiple roots and showing a combined or per-root view in the library browser.
 
 ## UI / UX
 

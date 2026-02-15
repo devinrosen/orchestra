@@ -1,6 +1,7 @@
 import { invoke, Channel } from "@tauri-apps/api/core";
 import type {
   LibraryTree,
+  LibraryRoot,
   Track,
   SyncProfile,
   CreateProfileRequest,
@@ -249,4 +250,16 @@ export function listAllFavorites(): Promise<Favorite[]> {
 
 export function getFavoriteTracks(): Promise<Track[]> {
   return invoke("get_favorite_tracks");
+}
+
+export function addLibraryRoot(path: string, label?: string): Promise<void> {
+  return invoke("add_library_root", { path, label: label ?? null });
+}
+
+export function removeLibraryRoot(path: string): Promise<void> {
+  return invoke("remove_library_root", { path });
+}
+
+export function listLibraryRoots(): Promise<LibraryRoot[]> {
+  return invoke("list_library_roots");
 }

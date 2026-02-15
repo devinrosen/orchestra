@@ -285,6 +285,12 @@ export interface Favorite {
   created_at: number;
 }
 
+export interface LibraryRoot {
+  path: string;
+  label: string | null;
+  added_at: number;
+}
+
 export type DuplicateMatchType = "content_hash" | "metadata_similarity";
 
 export interface DuplicateGroup {

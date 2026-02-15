@@ -1,4 +1,4 @@
-import type { LibraryTree, Track, ProgressEvent, LibraryViewMode, ArtistNode, AlbumEntry, GenreNode, FolderNode } from "../api/types";
+import type { LibraryTree, LibraryRoot, Track, ProgressEvent, LibraryViewMode, ArtistNode, AlbumEntry, GenreNode, FolderNode } from "../api/types";
 import * as commands from "../api/commands";
 import { flattenTree, groupByAlbum, groupByGenre, groupByFolder, filterArtists, filterAlbums, filterGenres, filterFolders } from "../utils/library-grouping";
 import { favoritesStore } from "./favorites.svelte";
@@ -17,7 +17,8 @@ function filterFolderByFavorites(node: FolderNode): FolderNode | null {
 
 class LibraryStore {
   tree = $state<LibraryTree | null>(null);
-  libraryRoot = $state<string>("");
+  libraryRoots = $state<LibraryRoot[]>([]);
+  activeRoot = $state<string | null>(null);
   scanning = $state(false);
   scanStartedAt = $state<number | null>(null);
   scanProgress = $state({ filesFound: 0, filesProcessed: 0, currentFile: "", dirsTotal: 0, dirsCompleted: 0 });
@@ -116,10 +117,15 @@ class LibraryStore {
     this.scanning = true;
     this.scanStartedAt = Date.now();
     this.error = null;
-    this.libraryRoot = path;
     this.scanProgress = { filesFound: 0, filesProcessed: 0, currentFile: "", dirsTotal: 0, dirsCompleted: 0 };
 
     try {
+      // Ensure path is registered in library_roots table
+      if (!this.libraryRoots.some(r => r.path === path)) {
+        await commands.addLibraryRoot(path);
+        this.libraryRoots = await commands.listLibraryRoots();
+      }
+
       await commands.scanDirectory(path, (event: ProgressEvent) => {
         if (event.type === "scan_progress") {
           this.scanProgress = {
@@ -135,7 +141,9 @@ class LibraryStore {
         }
       });
       await this.loadTree(path);
+      // Write both library_root (backward compat for device_cmd fallback) and active_library_root
       await commands.setSetting("library_root", path);
+      await commands.setSetting("active_library_root", path);
     } catch (e) {
       this.error = String(e);
     } finally {
@@ -146,7 +154,7 @@ class LibraryStore {
 
   async loadTree(root: string) {
     try {
-      this.libraryRoot = root;
+      this.activeRoot = root;
       this.tree = await commands.getLibraryTree(root);
       await this.loadIncompleteCount(root);
     } catch (e) {
@@ -163,15 +171,53 @@ class LibraryStore {
     }
   }
 
+  async addRoot(path: string, label?: string) {
+    await commands.addLibraryRoot(path, label);
+    this.libraryRoots = await commands.listLibraryRoots();
+    if (!this.activeRoot) await this.loadTree(path);
+  }
+
+  async removeRoot(path: string) {
+    await commands.removeLibraryRoot(path);
+    this.libraryRoots = await commands.listLibraryRoots();
+    if (this.activeRoot === path) {
+      const next = this.libraryRoots[0]?.path ?? null;
+      if (next) await this.loadTree(next);
+      else { this.tree = null; this.activeRoot = null; }
+    }
+  }
+
+  async switchRoot(path: string) {
+    await this.loadTree(path);
+    await commands.setSetting("active_library_root", path);
+  }
+
   async init() {
     try {
-      const root = await commands.getSetting("library_root");
+      // Load all configured roots
+      this.libraryRoots = await commands.listLibraryRoots();
+
       const savedMode = await commands.getSetting("library_view_mode");
       if (savedMode && ["artist", "album", "genre", "folder"].includes(savedMode)) {
         this.viewMode = savedMode as LibraryViewMode;
       }
-      if (root) {
-        await this.loadTree(root);
+
+      // Determine which root to show: prefer last active, fall back to first root,
+      // then fall back to legacy library_root setting for backward compat
+      const savedActive = await commands.getSetting("active_library_root");
+      let target: string | null = null;
+      if (savedActive && this.libraryRoots.some(r => r.path === savedActive)) {
+        target = savedActive;
+      } else if (this.libraryRoots.length > 0) {
+        target = this.libraryRoots[0].path;
+      } else {
+        // Backward compat: no library_roots rows yet, fall back to legacy setting
+        const legacyRoot = await commands.getSetting("library_root");
+        if (legacyRoot) target = legacyRoot;
+      }
+
+      if (target) {
+        await this.loadTree(target);
       }
     } catch (e) {
       this.error = String(e);

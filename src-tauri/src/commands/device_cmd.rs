@@ -1,15 +1,34 @@
+use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
 use rusqlite::Connection;
 use tauri::ipc::Channel;
 
-use crate::db::{device_repo, library_repo};
+use crate::db::{device_repo, library_repo, library_root_repo};
 use crate::device::{detect, sync as device_sync};
 use crate::error::AppError;
 use crate::models::device::{AlbumSelection, AlbumSummary, ArtistSummary, DetectedVolume, DeviceWithStatus, RegisterDeviceRequest};
 use crate::models::diff::DiffResult;
 use crate::models::progress::ProgressEvent;
 use crate::sync::progress::CancelToken;
+
+/// Fetch all configured library roots from the `library_roots` table.
+/// Falls back to reading `settings("library_root")` if the table is empty,
+/// for backward compatibility with installs that predate the multi-library migration.
+fn get_library_roots(conn: &Connection) -> Result<Vec<String>, AppError> {
+    let roots = library_root_repo::list_library_roots(conn)?;
+    if !roots.is_empty() {
+        return Ok(roots.into_iter().map(|r| r.path).collect());
+    }
+
+    // Fallback: single root from settings
+    let fallback: Option<String> = conn
+        .prepare("SELECT value FROM settings WHERE key = 'library_root'")?
+        .query_row([], |row| row.get(0))
+        .ok();
+
+    Ok(fallback.into_iter().collect())
+}
 
 #[tauri::command]
 pub async fn detect_volumes(
@@ -133,20 +152,17 @@ pub async fn compute_device_diff(
     device_id: String,
     on_progress: Channel<ProgressEvent>,
 ) -> Result<DiffResult, AppError> {
-    let (device, selected_artists, selected_albums, library_root, hash_cache) = {
+    let (device, selected_artists, selected_albums, library_roots, hash_cache) = {
         let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
         let device = device_repo::get_device(&conn, &device_id)?;
         let artists = device_repo::get_selected_artists(&conn, &device.id)?;
         let albums = device_repo::get_selected_albums(&conn, &device.id)?;
         let cache = device_repo::get_file_cache(&conn, &device_id)?;
-
-        // Get library root from settings
-        let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = 'library_root'")?;
-        let library_root: String = stmt
-            .query_row([], |row| row.get(0))
-            .map_err(|_| AppError::General("Library root not configured".to_string()))?;
-
-        (device, artists, albums, library_root, cache)
+        let roots = get_library_roots(&conn)?;
+        if roots.is_empty() {
+            return Err(AppError::General("Library root not configured".to_string()));
+        }
+        (device, artists, albums, roots, cache)
     };
 
     let mount_path = device
@@ -164,10 +180,19 @@ pub async fn compute_device_diff(
         Path::new(mount_path).join(&device.music_folder)
     };
 
-    // Get tracks for selected artists and albums
+    // Get tracks for selected artists and albums across all library roots
     let tracks = {
         let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
-        library_repo::get_tracks_for_device(&conn, &library_root, &selected_artists, &selected_albums)?
+        let mut all_tracks = Vec::new();
+        for root in &library_roots {
+            all_tracks.extend(library_repo::get_tracks_for_device(
+                &conn,
+                root,
+                &selected_artists,
+                &selected_albums,
+            )?);
+        }
+        all_tracks
     };
 
     let (diff, new_cache) = device_sync::compute_device_diff(
@@ -191,18 +216,16 @@ pub async fn execute_device_sync(
     diff_result: DiffResult,
     on_progress: Channel<ProgressEvent>,
 ) -> Result<usize, AppError> {
-    let (device, library_root, pre_cache) = {
+    let (device, library_roots, pre_cache) = {
         let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
         let device = device_repo::get_device(&conn, &device_id)?;
         let cache_map = device_repo::get_file_cache(&conn, &device_id)?;
         let cache_vec: Vec<_> = cache_map.into_values().collect();
-
-        let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = 'library_root'")?;
-        let library_root: String = stmt
-            .query_row([], |row| row.get(0))
-            .map_err(|_| AppError::General("Library root not configured".to_string()))?;
-
-        (device, library_root, cache_vec)
+        let roots = get_library_roots(&conn)?;
+        if roots.is_empty() {
+            return Err(AppError::General("Library root not configured".to_string()));
+        }
+        (device, roots, cache_vec)
     };
 
     let mount_path = device
@@ -228,9 +251,11 @@ pub async fn execute_device_sync(
         token.flag()
     };
 
+    let root_paths: Vec<&Path> = library_roots.iter().map(|s| Path::new(s.as_str())).collect();
+
     let (count, post_cache) = device_sync::execute_device_sync(
         &diff_result,
-        Path::new(&library_root),
+        &root_paths,
         &device_root,
         flag,
         &on_progress,
@@ -289,13 +314,27 @@ pub async fn list_artists(
     db: tauri::State<'_, Mutex<Connection>>,
 ) -> Result<Vec<ArtistSummary>, AppError> {
     let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
+    let roots = get_library_roots(&conn)?;
 
-    let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = 'library_root'")?;
-    let library_root: String = stmt
-        .query_row([], |row| row.get(0))
-        .map_err(|_| AppError::General("Library root not configured".to_string()))?;
+    // Merge artist summaries across all roots, summing counts for the same artist name.
+    let mut map: HashMap<String, ArtistSummary> = HashMap::new();
+    for root in &roots {
+        for a in library_repo::list_artists(&conn, root)? {
+            let entry = map.entry(a.name.clone()).or_insert_with(|| ArtistSummary {
+                name: a.name.clone(),
+                album_count: 0,
+                track_count: 0,
+                total_size: 0,
+            });
+            entry.album_count += a.album_count;
+            entry.track_count += a.track_count;
+            entry.total_size += a.total_size;
+        }
+    }
 
-    library_repo::list_artists(&conn, &library_root)
+    let mut artists: Vec<ArtistSummary> = map.into_values().collect();
+    artists.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    Ok(artists)
 }
 
 #[tauri::command]
@@ -303,11 +342,12 @@ pub async fn list_albums(
     db: tauri::State<'_, Mutex<Connection>>,
 ) -> Result<Vec<AlbumSummary>, AppError> {
     let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
+    let roots = get_library_roots(&conn)?;
 
-    let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = 'library_root'")?;
-    let library_root: String = stmt
-        .query_row([], |row| row.get(0))
-        .map_err(|_| AppError::General("Library root not configured".to_string()))?;
-
-    library_repo::list_albums(&conn, &library_root)
+    // Collect album summaries across all roots.
+    let mut all_albums = Vec::new();
+    for root in &roots {
+        all_albums.extend(library_repo::list_albums(&conn, root)?);
+    }
+    Ok(all_albums)
 }
