@@ -3,6 +3,7 @@ pub mod device;
 pub mod diff;
 pub mod duplicate;
 pub mod favorite;
+pub mod library_root;
 pub mod playlist;
 pub mod progress;
 pub mod sync_profile;

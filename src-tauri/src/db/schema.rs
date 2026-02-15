@@ -157,5 +157,15 @@ pub fn run_migrations(conn: &Connection) -> Result<(), AppError> {
         ",
     )?;
 
+    conn.execute_batch(
+        "
+        CREATE TABLE IF NOT EXISTS library_roots (
+            path TEXT PRIMARY KEY,
+            label TEXT,
+            added_at INTEGER NOT NULL
+        );
+        ",
+    )?;
+
     Ok(())
 }

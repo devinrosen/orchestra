@@ -271,9 +271,13 @@ pub fn compute_device_diff(
 }
 
 /// Returns (files_synced, post_sync_cache) — caller should save the cache to DB.
+///
+/// `library_roots` is a list of all configured library root paths. When looking up a source file
+/// for a copy operation, each root is tried in order until the file is found. This supports
+/// multi-library configurations where tracks come from different roots.
 pub fn execute_device_sync(
     diff: &DiffResult,
-    library_root: &Path,
+    library_roots: &[&Path],
     device_root: &Path,
     cancel_flag: Arc<AtomicBool>,
     channel: &Channel<ProgressEvent>,
@@ -322,7 +326,18 @@ pub fn execute_device_sync(
 
         let result = match entry.action {
             DiffAction::Add | DiffAction::Update => {
-                let src_path = library_root.join(&entry.relative_path);
+                // Find the source file across all library roots (supports multi-library).
+                // Use the first root that contains the file; fall back to the first root if none found.
+                let src_path = library_roots
+                    .iter()
+                    .map(|r| r.join(&entry.relative_path))
+                    .find(|p| p.exists())
+                    .unwrap_or_else(|| {
+                        library_roots
+                            .first()
+                            .map(|r| r.join(&entry.relative_path))
+                            .unwrap_or_else(|| Path::new(&entry.relative_path).to_path_buf())
+                    });
                 let tgt_path = device_root.join(&entry.relative_path);
                 let copy_result = copy_file_safe(&src_path, &tgt_path);
                 if copy_result.is_ok() {
