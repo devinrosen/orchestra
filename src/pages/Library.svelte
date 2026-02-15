@@ -47,6 +47,11 @@
     searchTimeout = setTimeout(() => libraryStore.search(value), 300);
   }
 
+  function clearSearch() {
+    clearTimeout(searchTimeout);
+    libraryStore.search("");
+  }
+
   function handleEditTrack(track: Track) {
     editingTrack = track;
   }
@@ -142,12 +147,18 @@
 
   {#if libraryTab === "browse"}
     {#if libraryStore.tree}
-      <input
-        type="text"
-        placeholder={searchPlaceholders[libraryStore.viewMode]}
-        oninput={onSearchInput}
-        class="search-input"
-      />
+      <div class="search-wrapper">
+        <input
+          type="text"
+          placeholder={searchPlaceholders[libraryStore.viewMode]}
+          oninput={onSearchInput}
+          value={libraryStore.searchQuery}
+          class="search-input"
+        />
+        {#if libraryStore.searchQuery}
+          <button class="search-clear-btn" onclick={clearSearch} aria-label="Clear search">&times;</button>
+        {/if}
+      </div>
 
       <div class="view-controls">
         <div class="view-mode-toggle">
@@ -331,8 +342,35 @@
     font-weight: 500;
   }
 
-  .search-input {
+  .search-wrapper {
+    position: relative;
     width: 220px;
+  }
+
+  .search-input {
+    width: 100%;
+    padding-right: 28px;
+    box-sizing: border-box;
+  }
+
+  .search-clear-btn {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 16px;
+    line-height: 1;
+    padding: 2px 6px;
+    cursor: pointer;
+    border-radius: var(--radius);
+  }
+
+  .search-clear-btn:hover {
+    color: var(--text-primary);
+    background: var(--bg-secondary);
   }
 
   .error-banner {
