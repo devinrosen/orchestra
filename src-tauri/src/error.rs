@@ -32,6 +32,9 @@ pub enum AppError {
     #[error("Path not accessible: {0}")]
     PathNotAccessible(String),
 
+    #[error("Smart playlist not found: {0}")]
+    SmartPlaylistNotFound(String),
+
     #[error("{0}")]
     General(String),
 }

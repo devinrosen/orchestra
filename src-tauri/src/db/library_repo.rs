@@ -382,6 +382,19 @@ pub fn get_incomplete_tracks(
     Ok(tracks)
 }
 
+pub fn get_all_tracks(conn: &Connection) -> Result<Vec<Track>, AppError> {
+    let mut stmt = conn.prepare(
+        "SELECT id, file_path, relative_path, library_root, title, artist,
+                album_artist, album, track_number, disc_number, year, genre,
+                duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate
+         FROM tracks ORDER BY id",
+    )?;
+    let tracks = stmt
+        .query_map([], track_from_row)?
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(tracks)
+}
+
 pub fn get_library_stats(conn: &Connection, library_root: &str) -> Result<LibraryStats, AppError> {
     // Summary row
     let (total_tracks, total_size, total_duration, avg_bitrate): (usize, u64, f64, Option<f64>) =
@@ -963,5 +976,37 @@ mod duplicate_tests {
 
         let groups = find_hash_duplicates(&conn, "/other").unwrap();
         assert!(groups.is_empty());
+    }
+}
+
+#[cfg(test)]
+mod get_all_tracks_tests {
+    use super::*;
+
+    #[test]
+    fn test_get_all_tracks() {
+        let conn = setup_db();
+        upsert_track(&conn, &make_track("ArtistA", "Album1", "flac", "Rock", 50_000_000, 300.0, Some(1411), "t1")).unwrap();
+        upsert_track(&conn, &make_track("ArtistB", "Album2", "mp3", "Jazz", 8_000_000, 240.0, Some(320), "t2")).unwrap();
+        upsert_track(&conn, &make_track("ArtistC", "Album3", "ogg", "Blues", 5_000_000, 180.0, None, "t3")).unwrap();
+
+        let tracks = get_all_tracks(&conn).unwrap();
+        assert_eq!(tracks.len(), 3);
+
+        // Verify all columns are correctly mapped (spot-check a few fields)
+        let flac_track = tracks.iter().find(|t| t.format == "flac").unwrap();
+        assert_eq!(flac_track.artist.as_deref(), Some("ArtistA"));
+        assert_eq!(flac_track.album.as_deref(), Some("Album1"));
+        assert_eq!(flac_track.genre.as_deref(), Some("Rock"));
+        assert_eq!(flac_track.file_size, 50_000_000);
+        assert_eq!(flac_track.bitrate, Some(1411));
+
+        let mp3_track = tracks.iter().find(|t| t.format == "mp3").unwrap();
+        assert_eq!(mp3_track.artist.as_deref(), Some("ArtistB"));
+        assert_eq!(mp3_track.bitrate, Some(320));
+
+        let ogg_track = tracks.iter().find(|t| t.format == "ogg").unwrap();
+        assert_eq!(ogg_track.bitrate, None);
+        assert!(ogg_track.id.is_some());
     }
 }

@@ -83,6 +83,12 @@ pub fn run() {
             commands::favorite_cmd::list_favorites,
             commands::favorite_cmd::list_all_favorites,
             commands::favorite_cmd::get_favorite_tracks,
+            commands::smart_playlist_cmd::create_smart_playlist,
+            commands::smart_playlist_cmd::list_smart_playlists,
+            commands::smart_playlist_cmd::get_smart_playlist,
+            commands::smart_playlist_cmd::update_smart_playlist,
+            commands::smart_playlist_cmd::delete_smart_playlist,
+            commands::smart_playlist_cmd::evaluate_smart_playlist,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

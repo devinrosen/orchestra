@@ -5,4 +5,5 @@ pub mod metadata_cmd;
 pub mod playlist_cmd;
 pub mod profile;
 pub mod settings;
+pub mod smart_playlist_cmd;
 pub mod sync_cmd;
