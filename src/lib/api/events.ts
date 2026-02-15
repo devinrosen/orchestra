@@ -34,6 +34,14 @@ export function createProgressHandler(callbacks: {
       case "sync_error":
         callbacks.onSyncError?.(event.file, event.error);
         break;
+      case "hash_started":
+      case "hash_progress":
+      case "scan_tree_updated":
+      case "device_scan_progress":
+      case "diff_progress":
+      case "diff_complete":
+        // handled by dedicated stores
+        break;
     }
   };
 }

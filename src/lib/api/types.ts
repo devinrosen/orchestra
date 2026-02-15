@@ -219,7 +219,9 @@ export type ProgressEvent =
   | { type: "sync_started"; total_files: number; total_bytes: number }
   | { type: "sync_progress"; files_completed: number; total_files: number; bytes_completed: number; total_bytes: number; current_file: string }
   | { type: "sync_complete"; files_synced: number; duration_ms: number }
-  | { type: "sync_error"; file: string; error: string };
+  | { type: "sync_error"; file: string; error: string }
+  | { type: "hash_started"; total: number }
+  | { type: "hash_progress"; files_hashed: number; total_files: number; current_file: string };
 
 export interface FormatStat {
   format: string;

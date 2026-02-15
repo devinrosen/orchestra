@@ -3,10 +3,11 @@
   import { deviceStore } from "../stores/device.svelte";
   import { syncStore } from "../stores/sync.svelte";
   import { libraryStore } from "../stores/library.svelte";
+  import { duplicatesStore } from "../stores/duplicates.svelte";
 
   let { onNavigate }: { onNavigate: (page: string) => void } = $props();
 
-  type ExpandedSection = "scan" | "device" | "profile" | null;
+  type ExpandedSection = "scan" | "device" | "profile" | "dup" | null;
   let expandedSection = $state<ExpandedSection>(null);
 
   // Tick for elapsed time display
@@ -73,7 +74,9 @@
     syncStore.phase === "syncing",
   );
 
-  let visible = $derived(scanActive || deviceActive || profileActive);
+  let dupActive = $derived(duplicatesStore.phase === "hashing");
+
+  let visible = $derived(scanActive || deviceActive || profileActive || dupActive);
 
   let deviceLabel = $derived.by(() => {
     if (!deviceActive) return "";
@@ -131,6 +134,22 @@
     return -1;
   });
 
+  let dupLabel = $derived.by(() => {
+    if (!dupActive) return "";
+    const p = duplicatesStore.hashProgress;
+    if (p.totalFiles === 0) return "Hashing tracks...";
+    const pct = Math.round((p.filesHashed / p.totalFiles) * 100);
+    return `Hashing: ${p.filesHashed}/${p.totalFiles} (${pct}%)`;
+  });
+
+  let dupProgress = $derived.by(() => {
+    const p = duplicatesStore.hashProgress;
+    if (p.totalFiles > 0) {
+      return (p.filesHashed / p.totalFiles) * 100;
+    }
+    return -1; // indeterminate
+  });
+
   // Auto-collapse when visibility changes or specific section becomes inactive
   $effect(() => {
     if (!visible) expandedSection = null;
@@ -140,6 +159,7 @@
     if (expandedSection === "scan" && !scanActive) expandedSection = null;
     if (expandedSection === "device" && !deviceActive) expandedSection = null;
     if (expandedSection === "profile" && !profileActive) expandedSection = null;
+    if (expandedSection === "dup" && !dupActive) expandedSection = null;
   });
 </script>
 
@@ -194,6 +214,23 @@
           {/if}
         </div>
         <span class="chevron" class:open={expandedSection === "profile"}>&#9662;</span>
+      </button>
+    {/if}
+    {#if dupActive}
+      <button
+        class="status-item"
+        class:expanded={expandedSection === "dup"}
+        onclick={() => toggleExpand("dup")}
+      >
+        <span class="status-label">{dupLabel}</span>
+        <div class="status-track">
+          {#if dupProgress >= 0}
+            <div class="status-fill" style="width: {dupProgress}%"></div>
+          {:else}
+            <div class="status-fill indeterminate"></div>
+          {/if}
+        </div>
+        <span class="chevron" class:open={expandedSection === "dup"}>&#9662;</span>
       </button>
     {/if}
   </div>
@@ -299,6 +336,26 @@
       {/if}
       <div class="detail-actions">
         <button class="link-btn" onclick={() => onNavigate("sync-preview")}>Go to Sync Preview</button>
+        <button class="link-btn" onclick={() => expandedSection = null}>Collapse</button>
+      </div>
+    </div>
+  {/if}
+
+  {#if expandedSection === "dup"}
+    <div class="detail-panel">
+      <div class="current-file" title={duplicatesStore.hashProgress.currentFile}>
+        {duplicatesStore.hashProgress.currentFile || "Waiting..."}
+      </div>
+      <div class="stat">
+        <span class="stat-label">Files</span>
+        <span class="stat-value">{duplicatesStore.hashProgress.filesHashed} / {duplicatesStore.hashProgress.totalFiles}</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Elapsed</span>
+        <span class="stat-value">{formatElapsed(duplicatesStore.startedAt)}</span>
+      </div>
+      <div class="detail-actions">
+        <button class="link-btn" onclick={() => onNavigate("library")}>Go to Library</button>
         <button class="link-btn" onclick={() => expandedSection = null}>Collapse</button>
       </div>
     </div>
