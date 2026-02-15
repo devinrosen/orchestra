@@ -146,6 +146,7 @@ export const tauriMockScript = /* js */ `
 
   const allSettings = [
     ["library_root", LIBRARY_ROOT],
+    ["active_library_root", LIBRARY_ROOT],
     ["library_view_mode", "artist"],
     ["theme", "dark"],
   ];
@@ -193,6 +194,9 @@ export const tauriMockScript = /* js */ `
     list_favorites: () => [],
     list_all_favorites: () => [],
     get_favorite_tracks: () => [],
+    list_library_roots: () => [{ path: LIBRARY_ROOT, label: null, added_at: 1700000000 }],
+    add_library_root: () => null,
+    remove_library_root: () => null,
   };
 
   window.__TAURI_INTERNALS__ = {

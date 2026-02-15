@@ -58,15 +58,15 @@
 
   async function handleTrackSaved() {
     editingTrack = null;
-    if (libraryStore.libraryRoot) {
-      await libraryStore.loadTree(libraryStore.libraryRoot);
+    if (libraryStore.activeRoot) {
+      await libraryStore.loadTree(libraryStore.activeRoot);
     }
   }
 
   async function handleAlbumSaved() {
     editingAlbum = null;
-    if (libraryStore.libraryRoot) {
-      await libraryStore.loadTree(libraryStore.libraryRoot);
+    if (libraryStore.activeRoot) {
+      await libraryStore.loadTree(libraryStore.activeRoot);
     }
   }
 </script>

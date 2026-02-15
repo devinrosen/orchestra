@@ -75,15 +75,15 @@
 
   async function handleTrackSaved() {
     editingTrack = null;
-    if (libraryStore.libraryRoot) {
-      await libraryStore.loadTree(libraryStore.libraryRoot);
+    if (libraryStore.activeRoot) {
+      await libraryStore.loadTree(libraryStore.activeRoot);
     }
   }
 
   async function handleAlbumSaved() {
     editingAlbum = null;
-    if (libraryStore.libraryRoot) {
-      await libraryStore.loadTree(libraryStore.libraryRoot);
+    if (libraryStore.activeRoot) {
+      await libraryStore.loadTree(libraryStore.activeRoot);
     }
   }
 
@@ -229,12 +229,27 @@
         </div>
       {/if}
 
+      <div class="libraries-section">
+        <h3>Library Folders</h3>
+        {#each libraryStore.libraryRoots as root}
+          <div class="root-row">
+            <button
+              class="root-btn"
+              class:active={libraryStore.activeRoot === root.path}
+              onclick={() => libraryStore.switchRoot(root.path)}
+            >
+              <span class="root-path">{root.path}</span>
+              {#if root.label}<span class="root-label">{root.label}</span>{/if}
+            </button>
+            <button class="danger-sm" onclick={() => libraryStore.removeRoot(root.path)}>Remove</button>
+          </div>
+        {/each}
+        <button class="primary" onclick={pickDirectory}>Add Library Folder</button>
+      </div>
+
       <div class="manage-actions">
-        <button class="primary" onclick={pickDirectory} disabled={libraryStore.scanning}>
-          {libraryStore.scanning ? "Scanning..." : "Open Directory"}
-        </button>
         {#if libraryStore.tree && !libraryStore.scanning}
-          <button class="secondary" onclick={() => libraryStore.scan(libraryStore.libraryRoot)}>
+          <button class="secondary" onclick={() => libraryStore.activeRoot && libraryStore.scan(libraryStore.activeRoot)}>
             Rescan Library
           </button>
           <button class="secondary report-btn" onclick={() => (showMetadataReport = true)}>
@@ -275,20 +290,20 @@
     />
   {/if}
 
-  {#if showMetadataReport && libraryStore.libraryRoot}
+  {#if showMetadataReport && libraryStore.activeRoot}
     <MetadataReport
-      libraryRoot={libraryStore.libraryRoot}
+      libraryRoot={libraryStore.activeRoot}
       onEditTrack={handleReportEditTrack}
       onClose={() => (showMetadataReport = false)}
     />
   {/if}
 
-  {#if showDuplicateReport && libraryStore.libraryRoot}
+  {#if showDuplicateReport && libraryStore.activeRoot}
     <DuplicateReport
-      libraryRoot={libraryStore.libraryRoot}
+      libraryRoot={libraryStore.activeRoot}
       onClose={() => {
         showDuplicateReport = false;
-        if (libraryStore.libraryRoot) libraryStore.loadTree(libraryStore.libraryRoot);
+        if (libraryStore.activeRoot) libraryStore.loadTree(libraryStore.activeRoot);
       }}
     />
   {/if}
@@ -472,6 +487,78 @@
     flex-direction: column;
     gap: 16px;
     flex: 1;
+  }
+
+  .libraries-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .libraries-section h3 {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+  }
+
+  .root-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .root-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-primary);
+    font-size: 13px;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s;
+  }
+
+  .root-btn:hover {
+    background: var(--bg-tertiary);
+  }
+
+  .root-btn.active {
+    border-color: var(--accent);
+    background: var(--bg-tertiary);
+  }
+
+  .root-btn .root-path {
+    font-family: monospace;
+    flex: 1;
+  }
+
+  .root-label {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+
+  .danger-sm {
+    padding: 6px 10px;
+    font-size: 12px;
+    background: none;
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background 0.15s;
+    flex-shrink: 0;
+  }
+
+  .danger-sm:hover {
+    background: var(--accent-tint-strong);
   }
 
   .manage-actions {

@@ -8,7 +8,7 @@
   let error = $state<string | null>(null);
 
   $effect(() => {
-    const root = libraryStore.libraryRoot;
+    const root = libraryStore.activeRoot;
     if (root) {
       loadStats(root);
     } else {
@@ -53,7 +53,7 @@
 <div class="statistics-page">
   <h2>Library Statistics</h2>
 
-  {#if !libraryStore.libraryRoot}
+  {#if !libraryStore.activeRoot}
     <p class="empty-state">No library loaded. Scan a directory first.</p>
   {:else if loading}
     <p>Loading statistics...</p>
