@@ -1,20 +1,37 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import type { Track, Favorite } from "../lib/api/types";
-  import { listFavorites, getFavoriteTracks } from "../lib/api/commands";
+  import type { Track, ArtistNode, AlbumEntry } from "../lib/api/types";
   import { favoritesStore } from "../lib/stores/favorites.svelte";
+  import { libraryStore } from "../lib/stores/library.svelte";
   import { playerStore } from "../lib/stores/player.svelte";
+  import TreeView from "../lib/components/TreeView.svelte";
+  import AlbumListView from "../lib/components/AlbumListView.svelte";
   import TrackRow from "../lib/components/TrackRow.svelte";
   import MetadataEditor from "../lib/components/MetadataEditor.svelte";
-  import { formatDuration } from "../lib/utils/format";
-
-  let favoriteArtists = $state<Favorite[]>([]);
-  let favoriteAlbums = $state<Favorite[]>([]);
-  let favoriteTracks = $state<Track[]>([]);
-  let loading = $state(true);
+  import AlbumEditor from "../lib/components/AlbumEditor.svelte";
 
   let expandedSections = $state<Set<string>>(new Set(["artists", "albums", "tracks"]));
   let editingTrack = $state<Track | null>(null);
+  let editingAlbum = $state<{ tracks: Track[]; albumName: string; artistName: string } | null>(null);
+
+  let favoriteArtistNodes: ArtistNode[] = $derived(
+    libraryStore.tree
+      ? libraryStore.tree.artists.filter(a => favoritesStore.isFavorite('artist', a.name))
+      : []
+  );
+
+  let favoriteAlbumEntries: AlbumEntry[] = $derived(
+    libraryStore.tree
+      ? libraryStore.tree.artists.flatMap(artist =>
+          artist.albums
+            .filter(album => favoritesStore.isFavorite('album', artist.name + '\0' + album.name))
+            .map(album => ({ name: album.name, artist: artist.name, year: album.year, tracks: album.tracks }))
+        )
+      : []
+  );
+
+  let favoriteTracks: Track[] = $derived(
+    libraryStore.allTracks.filter(t => t.id != null && favoritesStore.isFavorite('track', String(t.id)))
+  );
 
   function toggleSection(section: string) {
     const next = new Set(expandedSections);
@@ -23,85 +40,61 @@
     expandedSections = next;
   }
 
-  async function loadData() {
-    loading = true;
-    try {
-      const [artists, albums, tracks] = await Promise.all([
-        listFavorites("artist"),
-        listFavorites("album"),
-        getFavoriteTracks(),
-      ]);
-      favoriteArtists = artists;
-      favoriteAlbums = albums;
-      favoriteTracks = tracks;
-    } catch (e) {
-      console.error("Failed to load favorites:", e);
-    } finally {
-      loading = false;
-    }
-  }
-
-  onMount(() => {
-    loadData();
-  });
-
-  function parseAlbumKey(entityId: string): { artist: string; album: string } {
-    const idx = entityId.indexOf("\0");
-    if (idx === -1) return { artist: "", album: entityId };
-    return { artist: entityId.substring(0, idx), album: entityId.substring(idx + 1) };
-  }
-
-  async function unfavoriteArtist(name: string) {
-    await favoritesStore.toggle("artist", name);
-    favoriteArtists = favoriteArtists.filter((f) => f.entity_id !== name);
-  }
-
-  async function unfavoriteAlbum(entityId: string) {
-    await favoritesStore.toggle("album", entityId);
-    favoriteAlbums = favoriteAlbums.filter((f) => f.entity_id !== entityId);
-  }
-
-  function handlePlayTrack(track: Track, siblingTracks: Track[]) {
-    playerStore.playTrack(track, siblingTracks);
-  }
-
   function handleEditTrack(track: Track) {
     editingTrack = track;
   }
 
+  function handleEditAlbum(tracks: Track[], albumName: string, artistName: string) {
+    editingAlbum = { tracks, albumName, artistName };
+  }
+
+  function handlePlayTrack(track: Track, albumTracks: Track[]) {
+    playerStore.playTrack(track, albumTracks);
+  }
+
+  function handlePlayAlbum(tracks: Track[]) {
+    playerStore.playAlbum(tracks);
+  }
+
   async function handleTrackSaved() {
     editingTrack = null;
-    await loadData();
+    if (libraryStore.libraryRoot) {
+      await libraryStore.loadTree(libraryStore.libraryRoot);
+    }
+  }
+
+  async function handleAlbumSaved() {
+    editingAlbum = null;
+    if (libraryStore.libraryRoot) {
+      await libraryStore.loadTree(libraryStore.libraryRoot);
+    }
   }
 </script>
 
 <div class="favorites-page">
   <h2>Favorites</h2>
 
-  {#if loading}
-    <div class="loading">Loading favorites...</div>
+  {#if !libraryStore.tree}
+    <div class="loading">Library not loaded</div>
   {:else}
     <div class="fav-section">
       <button class="section-header" onclick={() => toggleSection("artists")}>
         <span class="chevron" class:expanded={expandedSections.has("artists")}>&#9654;</span>
         <span class="section-title">Artists</span>
-        <span class="section-count">{favoriteArtists.length}</span>
+        <span class="section-count">{favoriteArtistNodes.length}</span>
       </button>
       {#if expandedSections.has("artists")}
         <div class="section-content">
-          {#if favoriteArtists.length === 0}
+          {#if favoriteArtistNodes.length === 0}
             <div class="empty-hint">No favorite artists yet</div>
           {:else}
-            {#each favoriteArtists as fav}
-              <div class="fav-item">
-                <span class="fav-name">{fav.entity_id}</span>
-                <button
-                  class="unfav-btn"
-                  onclick={() => unfavoriteArtist(fav.entity_id)}
-                  title="Remove from favorites"
-                >&#x2665;</button>
-              </div>
-            {/each}
+            <TreeView
+              artists={favoriteArtistNodes}
+              onEditTrack={handleEditTrack}
+              onEditAlbum={handleEditAlbum}
+              onPlayTrack={handlePlayTrack}
+              onPlayAlbum={handlePlayAlbum}
+            />
           {/if}
         </div>
       {/if}
@@ -111,25 +104,20 @@
       <button class="section-header" onclick={() => toggleSection("albums")}>
         <span class="chevron" class:expanded={expandedSections.has("albums")}>&#9654;</span>
         <span class="section-title">Albums</span>
-        <span class="section-count">{favoriteAlbums.length}</span>
+        <span class="section-count">{favoriteAlbumEntries.length}</span>
       </button>
       {#if expandedSections.has("albums")}
         <div class="section-content">
-          {#if favoriteAlbums.length === 0}
+          {#if favoriteAlbumEntries.length === 0}
             <div class="empty-hint">No favorite albums yet</div>
           {:else}
-            {#each favoriteAlbums as fav}
-              {@const parsed = parseAlbumKey(fav.entity_id)}
-              <div class="fav-item">
-                <span class="fav-name">{parsed.album}</span>
-                <span class="fav-artist">{parsed.artist}</span>
-                <button
-                  class="unfav-btn"
-                  onclick={() => unfavoriteAlbum(fav.entity_id)}
-                  title="Remove from favorites"
-                >&#x2665;</button>
-              </div>
-            {/each}
+            <AlbumListView
+              albums={favoriteAlbumEntries}
+              onEditTrack={handleEditTrack}
+              onEditAlbum={handleEditAlbum}
+              onPlayTrack={handlePlayTrack}
+              onPlayAlbum={handlePlayAlbum}
+            />
           {/if}
         </div>
       {/if}
@@ -165,6 +153,16 @@
       track={editingTrack}
       onSave={handleTrackSaved}
       onClose={() => (editingTrack = null)}
+    />
+  {/if}
+
+  {#if editingAlbum}
+    <AlbumEditor
+      tracks={editingAlbum.tracks}
+      albumName={editingAlbum.albumName}
+      artistName={editingAlbum.artistName}
+      onSave={handleAlbumSaved}
+      onClose={() => (editingAlbum = null)}
     />
   {/if}
 </div>
@@ -225,51 +223,6 @@
 
   .section-content {
     padding: 4px 8px;
-  }
-
-  .fav-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 6px 8px;
-    border-radius: var(--radius);
-    font-size: 13px;
-  }
-
-  .fav-item:hover {
-    background: var(--bg-secondary);
-  }
-
-  .fav-name {
-    flex: 1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .fav-artist {
-    color: var(--text-secondary);
-    font-size: 12px;
-    flex-shrink: 0;
-  }
-
-  .unfav-btn {
-    background: none;
-    border: none;
-    color: var(--accent);
-    font-size: 14px;
-    padding: 2px 6px;
-    cursor: pointer;
-    opacity: 0;
-    transition: opacity 0.15s;
-  }
-
-  .fav-item:hover .unfav-btn {
-    opacity: 1;
-  }
-
-  .unfav-btn:hover {
-    color: var(--danger);
   }
 
   .empty-hint {
