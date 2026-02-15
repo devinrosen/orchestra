@@ -157,5 +157,15 @@ pub fn run_migrations(conn: &Connection) -> Result<(), AppError> {
         ",
     )?;
 
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS smart_playlists (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            rule_json TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            updated_at INTEGER NOT NULL
+        );",
+    )?;
+
     Ok(())
 }

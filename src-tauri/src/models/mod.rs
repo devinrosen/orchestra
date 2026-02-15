@@ -5,5 +5,6 @@ pub mod duplicate;
 pub mod favorite;
 pub mod playlist;
 pub mod progress;
+pub mod smart_playlist;
 pub mod sync_profile;
 pub mod track;
