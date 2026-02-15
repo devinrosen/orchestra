@@ -1,5 +1,6 @@
 use rusqlite::{params, Connection};
 
+use crate::db::library_repo::track_from_row;
 use crate::error::AppError;
 use crate::models::playlist::{Playlist, PlaylistWithTracks};
 use crate::models::track::Track;
@@ -150,29 +151,7 @@ pub fn get_playlist_tracks(conn: &Connection, playlist_id: &str) -> Result<Vec<T
          ORDER BY pt.position",
     )?;
     let tracks = stmt
-        .query_map(params![playlist_id], |row| {
-            Ok(Track {
-                id: Some(row.get(0)?),
-                file_path: row.get(1)?,
-                relative_path: row.get(2)?,
-                library_root: row.get(3)?,
-                title: row.get(4)?,
-                artist: row.get(5)?,
-                album_artist: row.get(6)?,
-                album: row.get(7)?,
-                track_number: row.get(8)?,
-                disc_number: row.get(9)?,
-                year: row.get(10)?,
-                genre: row.get(11)?,
-                duration_secs: row.get(12)?,
-                format: row.get(13)?,
-                file_size: row.get(14)?,
-                modified_at: row.get(15)?,
-                hash: row.get(16)?,
-                has_album_art: row.get(17)?,
-                bitrate: row.get(18)?,
-            })
-        })?
+        .query_map(params![playlist_id], track_from_row)?
         .collect::<Result<Vec<_>, _>>()?;
     Ok(tracks)
 }
