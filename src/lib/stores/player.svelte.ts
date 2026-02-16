@@ -1,6 +1,6 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import type { Track, AlbumArt } from "../api/types";
-import { getTrackArtwork } from "../api/commands";
+import { getTrackArtwork, recordPlay } from "../api/commands";
 import { equalizerStore } from "./equalizer.svelte";
 
 class PlayerStore {
@@ -249,6 +249,10 @@ class PlayerStore {
     this.audio.src = src;
     this.audio.play();
     this.loadArtwork();
+    // Record play — fire-and-forget; non-critical if it fails
+    if (this.currentTrack.id != null) {
+      recordPlay(this.currentTrack.id).catch(() => {});
+    }
   }
 
   private async loadArtwork() {
