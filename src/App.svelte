@@ -13,22 +13,26 @@
   import NowPlayingBar from "./lib/components/NowPlayingBar.svelte";
   import VisualizerPanel from "./lib/components/VisualizerPanel.svelte";
   import EqualizerPanel from "./lib/components/EqualizerPanel.svelte";
+  import ShortcutsHelpOverlay from "./lib/components/ShortcutsHelpOverlay.svelte";
   import { libraryStore } from "./lib/stores/library.svelte";
   import { playerStore } from "./lib/stores/player.svelte";
   import { playlistStore } from "./lib/stores/playlist.svelte";
   import { themeStore } from "./lib/stores/theme.svelte";
   import { favoritesStore } from "./lib/stores/favorites.svelte";
+  import { shortcutsStore } from "./lib/stores/shortcuts.svelte";
 
   type Page = "library" | "favorites" | "statistics" | "playlists" | "profiles" | "sync-preview" | "devices" | "settings";
 
   let currentPage = $state<Page>("library");
   let pageData = $state<Record<string, unknown>>({});
+  let showShortcutsOverlay = $state(false);
 
   onMount(() => {
     libraryStore.init();
     playlistStore.load();
     themeStore.init();
     favoritesStore.load();
+    shortcutsStore.load();
   });
 
   $effect(() => {
@@ -40,18 +44,100 @@
     pageData = data ?? {};
   }
 
-  const navItems: { page: Page; label: string }[] = [
-    { page: "library", label: "Library" },
-    { page: "favorites", label: "Favorites" },
-    { page: "statistics", label: "Statistics" },
-    { page: "playlists", label: "Playlists" },
-    { page: "profiles", label: "Sync Profiles" },
-    { page: "devices", label: "Devices" },
-    { page: "settings", label: "Settings" },
+  function handleGlobalKey(e: KeyboardEvent) {
+    // Do not intercept shortcuts while typing in an input field
+    if (
+      e.target instanceof HTMLInputElement ||
+      e.target instanceof HTMLTextAreaElement ||
+      e.target instanceof HTMLSelectElement
+    ) {
+      return;
+    }
+
+    const action = shortcutsStore.match(e);
+    if (!action) return;
+
+    switch (action) {
+      case "play-pause":
+        if (playerStore.currentTrack) {
+          e.preventDefault();
+          playerStore.togglePlayPause();
+        }
+        break;
+      case "next-track":
+        if (playerStore.hasNext) {
+          e.preventDefault();
+          playerStore.next();
+        }
+        break;
+      case "prev-track":
+        if (playerStore.hasPrev) {
+          e.preventDefault();
+          playerStore.previous();
+        }
+        break;
+      case "volume-up":
+        e.preventDefault();
+        playerStore.setVolume(Math.min(1, playerStore.volume + 0.05));
+        break;
+      case "volume-down":
+        e.preventDefault();
+        playerStore.setVolume(Math.max(0, playerStore.volume - 0.05));
+        break;
+      case "nav-library":
+        e.preventDefault();
+        navigate("library");
+        break;
+      case "nav-favorites":
+        e.preventDefault();
+        navigate("favorites");
+        break;
+      case "nav-playlists":
+        e.preventDefault();
+        navigate("playlists");
+        break;
+      case "nav-profiles":
+        e.preventDefault();
+        navigate("profiles");
+        break;
+      case "nav-devices":
+        e.preventDefault();
+        navigate("devices");
+        break;
+      case "nav-settings":
+        e.preventDefault();
+        navigate("settings");
+        break;
+      case "rescan-library":
+        if (libraryStore.libraryRoot && !libraryStore.scanning) {
+          e.preventDefault();
+          libraryStore.scan(libraryStore.libraryRoot);
+        }
+        break;
+      case "focus-search":
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("focus-search"));
+        break;
+      case "show-shortcuts":
+        e.preventDefault();
+        showShortcutsOverlay = !showShortcutsOverlay;
+        break;
+    }
+  }
+
+  const navItems: { page: Page; label: string; title: string }[] = [
+    { page: "library",    label: "Library",       title: "Library (1)" },
+    { page: "favorites",  label: "Favorites",     title: "Favorites (2)" },
+    { page: "statistics", label: "Statistics",    title: "Statistics" },
+    { page: "playlists",  label: "Playlists",     title: "Playlists (3)" },
+    { page: "profiles",   label: "Sync Profiles", title: "Sync Profiles (4)" },
+    { page: "devices",    label: "Devices",       title: "Devices (5)" },
+    { page: "settings",   label: "Settings",      title: "Settings (6)" },
   ];
 </script>
 
-<div class="app-layout">
+<!-- svelte-ignore a11y_no_static_element_interactions -->
+<div class="app-layout" onkeydown={handleGlobalKey}>
   <nav class="sidebar">
     <div class="app-title">Orchestra</div>
     {#each navItems as item}
@@ -59,6 +145,7 @@
         class="nav-item"
         class:active={currentPage === item.page}
         onclick={() => navigate(item.page)}
+        title={item.title}
       >
         {item.label}
       </button>
@@ -100,6 +187,10 @@
     {/if}
   </div>
 </div>
+
+{#if showShortcutsOverlay}
+  <ShortcutsHelpOverlay onClose={() => (showShortcutsOverlay = false)} />
+{/if}
 
 <style>
   .app-layout {
