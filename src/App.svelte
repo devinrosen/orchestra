@@ -33,6 +33,12 @@
     themeStore.init();
     favoritesStore.load();
     shortcutsStore.load();
+
+    function onKeyDown(e: KeyboardEvent) {
+      handleGlobalKey(e);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   });
 
   $effect(() => {
@@ -136,8 +142,7 @@
   ];
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="app-layout" onkeydown={handleGlobalKey}>
+<div class="app-layout">
   <nav class="sidebar">
     <div class="app-title">Orchestra</div>
     {#each navItems as item}

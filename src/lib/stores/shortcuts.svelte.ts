@@ -56,8 +56,16 @@ export function eventToKey(e: KeyboardEvent): string {
   if (e.ctrlKey) parts.push("Ctrl");
   if (e.metaKey) parts.push("Meta");
   if (e.altKey) parts.push("Alt");
-  if (e.shiftKey) parts.push("Shift");
-  parts.push(e.key);
+
+  // Normalize the key name
+  let key = e.key;
+  if (key === " ") key = "Space";
+
+  // Only include Shift as a modifier for non-printable keys (arrows, function keys, etc.).
+  // For printable characters like "?" (Shift+/), use the resulting character directly.
+  if (e.shiftKey && key.length !== 1) parts.push("Shift");
+
+  parts.push(key);
   return parts.join("+");
 }
 

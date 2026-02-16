@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { shortcutsStore, ACTION_LABELS, eventToKey, type ShortcutAction } from "../stores/shortcuts.svelte";
 
   let { action }: { action: ShortcutAction } = $props();
@@ -43,16 +44,22 @@
     shortcutsStore.setBinding(action, key);
   }
 
+  // Capture key presses on window while recording so unfocusable divs aren't a problem
+  $effect(() => {
+    if (recording) {
+      window.addEventListener("keydown", handleKeyDown, true);
+      return () => window.removeEventListener("keydown", handleKeyDown, true);
+    }
+  });
+
   const hasConflict = $derived(shortcutsStore.hasConflict(action));
   const currentBinding = $derived(shortcutsStore.bindings[action]);
   const label = $derived(ACTION_LABELS[action]);
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
   class="keybinding-row"
   class:has-conflict={hasConflict}
-  onkeydown={handleKeyDown}
 >
   <span class="action-label">{label}</span>
   <div class="binding-controls">
