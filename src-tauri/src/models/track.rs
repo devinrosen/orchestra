@@ -21,6 +21,7 @@ pub struct Track {
     pub hash: Option<String>,
     pub has_album_art: bool,
     pub bitrate: Option<u32>,
+    pub scanned_at: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
