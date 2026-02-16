@@ -323,6 +323,53 @@ pub async fn delete_duplicate_tracks(
     library_repo::delete_tracks_by_ids(&conn, &track_ids)
 }
 
+/// Replace filesystem-unsafe characters with underscores, trim whitespace, and ensure non-empty.
+fn sanitize_folder_name(name: &str) -> String {
+    let sanitized: String = name
+        .chars()
+        .map(|c| match c {
+            '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|' => '_',
+            _ => c,
+        })
+        .collect();
+    let trimmed = sanitized.trim().to_string();
+    if trimmed.is_empty() {
+        "_".to_string()
+    } else {
+        trimmed
+    }
+}
+
+/// Read artist/album metadata from a source file to determine the destination folder.
+/// Returns (artist_folder, album_folder), falling back to "Unknown Artist"/"Unknown Album".
+fn read_folder_metadata(src: &Path) -> (String, String) {
+    if let Ok(tagged) = lofty::read_from_path(src) {
+        use lofty::file::TaggedFileExt;
+        use lofty::tag::Accessor;
+        if let Some(tag) = tagged.primary_tag().or_else(|| tagged.first_tag()) {
+            let album_artist = tag
+                .get_string(&lofty::tag::ItemKey::AlbumArtist)
+                .map(|s| s.to_string());
+            let artist = tag.artist().map(|s| s.to_string());
+            let artist_folder = album_artist
+                .or(artist)
+                .unwrap_or_else(|| "Unknown Artist".to_string());
+            let album_folder = tag
+                .album()
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| "Unknown Album".to_string());
+            return (
+                sanitize_folder_name(&artist_folder),
+                sanitize_folder_name(&album_folder),
+            );
+        }
+    }
+    (
+        "Unknown Artist".to_string(),
+        "Unknown Album".to_string(),
+    )
+}
+
 /// Copy audio files from `source_paths` into `library_root`, extract metadata, and upsert to DB.
 /// Progress events are delivered via `on_event`. Returns the count of successfully imported tracks.
 ///
@@ -356,7 +403,7 @@ fn do_import_tracks(
             continue;
         }
 
-        // Determine destination path with collision handling
+        // Determine destination path with organized folders and collision handling
         let filename = match src.file_name() {
             Some(n) => n.to_string_lossy().to_string(),
             None => {
@@ -364,6 +411,14 @@ fn do_import_tracks(
                 continue;
             }
         };
+
+        // Read metadata from source to determine artist/album folders
+        let (artist_folder, album_folder) = read_folder_metadata(src);
+        let dest_dir = root.join(&artist_folder).join(&album_folder);
+        if let Err(e) = std::fs::create_dir_all(&dest_dir) {
+            eprintln!("import_tracks: failed to create directory {}: {}", dest_dir.display(), e);
+            continue;
+        }
 
         let stem = Path::new(&filename)
             .file_stem()
@@ -374,7 +429,7 @@ fn do_import_tracks(
             .map(|e| e.to_string_lossy().to_string());
 
         let dest_path = {
-            let candidate = root.join(&filename);
+            let candidate = dest_dir.join(&filename);
             if !candidate.exists() {
                 candidate
             } else {
@@ -384,7 +439,7 @@ fn do_import_tracks(
                         Some(e) => format!("{}_{}.{}", stem, n, e),
                         None => format!("{}_{}", stem, n),
                     };
-                    let c = root.join(&new_name);
+                    let c = dest_dir.join(&new_name);
                     if !c.exists() {
                         found = Some(c);
                         break;
@@ -589,9 +644,10 @@ mod import_tracks_tests {
         // The function must not error even when lofty cannot parse the fake binary content.
         assert!(result.is_ok(), "expected Ok, got {:?}", result);
 
-        // The file must be copied into the library root regardless of metadata extraction outcome.
-        let dest = library_dir.path().join("track.flac");
-        assert!(dest.exists(), "expected track.flac to be copied into library_root");
+        // The file must be copied into the organized subfolder (Unknown Artist/Unknown Album
+        // because fake audio has no metadata).
+        let dest = library_dir.path().join("Unknown Artist").join("Unknown Album").join("track.flac");
+        assert!(dest.exists(), "expected track.flac to be copied into Unknown Artist/Unknown Album/");
     }
 
     #[test]
@@ -599,8 +655,10 @@ mod import_tracks_tests {
         let library_dir = TempDir::new().unwrap();
         let source_dir = TempDir::new().unwrap();
 
-        // Pre-place a file named track.flac in the library root
-        std::fs::write(library_dir.path().join("track.flac"), b"original").unwrap();
+        // Pre-place a file named track.flac in the organized subfolder
+        let dest_dir = library_dir.path().join("Unknown Artist").join("Unknown Album");
+        std::fs::create_dir_all(&dest_dir).unwrap();
+        std::fs::write(dest_dir.join("track.flac"), b"original").unwrap();
 
         // Import another file also named track.flac from a different source directory
         let source_path = write_fake_audio(source_dir.path(), "track.flac");
@@ -615,13 +673,13 @@ mod import_tracks_tests {
             |_| {},
         );
 
-        // Both the original and the renamed copy must exist
+        // Both the original and the renamed copy must exist within the organized subfolder
         assert!(
-            library_dir.path().join("track.flac").exists(),
+            dest_dir.join("track.flac").exists(),
             "original track.flac must still exist"
         );
         assert!(
-            library_dir.path().join("track_1.flac").exists(),
+            dest_dir.join("track_1.flac").exists(),
             "imported file must be renamed to track_1.flac"
         );
     }
@@ -676,8 +734,8 @@ mod import_tracks_tests {
         // Missing source path must be skipped — function must not error
         assert!(result.is_ok(), "expected Ok when source path is missing, got {:?}", result);
 
-        // The valid file must be copied (even if metadata extraction fails on fake content)
-        let dest = library_dir.path().join("present.flac");
+        // The valid file must be copied into the organized subfolder
+        let dest = library_dir.path().join("Unknown Artist").join("Unknown Album").join("present.flac");
         assert!(dest.exists(), "expected present.flac to be copied despite missing sibling path");
     }
 
@@ -720,5 +778,43 @@ mod import_tracks_tests {
             matches!(events.last(), Some(ProgressEvent::ScanComplete { .. })),
             "ScanComplete must be the last event"
         );
+    }
+
+    #[test]
+    fn test_sanitize_folder_name() {
+        assert_eq!(sanitize_folder_name("AC/DC"), "AC_DC");
+        assert_eq!(sanitize_folder_name("What?"), "What_");
+        assert_eq!(sanitize_folder_name("  Spaces  "), "Spaces");
+        assert_eq!(sanitize_folder_name("Normal Name"), "Normal Name");
+        assert_eq!(sanitize_folder_name(""), "_");
+        assert_eq!(sanitize_folder_name("A:B*C"), "A_B_C");
+    }
+
+    #[test]
+    fn test_import_creates_organized_folders() {
+        let library_dir = TempDir::new().unwrap();
+        let source_dir = TempDir::new().unwrap();
+
+        // Import two fake audio files — both will land in Unknown Artist/Unknown Album
+        let p1 = write_fake_audio(source_dir.path(), "song_a.flac");
+        let p2 = write_fake_audio(source_dir.path(), "song_b.mp3");
+
+        let conn = setup_db();
+        let db = Mutex::new(conn);
+
+        let _result = do_import_tracks(
+            &db,
+            &[p1, p2],
+            library_dir.path().to_str().unwrap(),
+            |_| {},
+        );
+
+        let organized = library_dir.path().join("Unknown Artist").join("Unknown Album");
+        assert!(organized.join("song_a.flac").exists(), "song_a.flac must be in organized folder");
+        assert!(organized.join("song_b.mp3").exists(), "song_b.mp3 must be in organized folder");
+
+        // Root should NOT contain the files directly
+        assert!(!library_dir.path().join("song_a.flac").exists(), "files should not be in root");
+        assert!(!library_dir.path().join("song_b.mp3").exists(), "files should not be in root");
     }
 }
