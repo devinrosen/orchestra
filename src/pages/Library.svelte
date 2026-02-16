@@ -9,6 +9,7 @@
   import AlbumEditor from "../lib/components/AlbumEditor.svelte";
   import MetadataReport from "../lib/components/MetadataReport.svelte";
   import DuplicateReport from "../lib/components/DuplicateReport.svelte";
+  import ImportDialog from "../lib/components/ImportDialog.svelte";
   import ProgressBar from "../lib/components/ProgressBar.svelte";
   import { libraryStore } from "../lib/stores/library.svelte";
   import { playerStore } from "../lib/stores/player.svelte";
@@ -25,6 +26,7 @@
   let editingAlbum = $state<{ tracks: Track[]; albumName: string; artistName: string } | null>(null);
   let showMetadataReport = $state(false);
   let showDuplicateReport = $state(false);
+  let showImportDialog = $state(false);
 
   const viewModes: { mode: LibraryViewMode; label: string }[] = [
     { mode: "artist", label: "Artists" },
@@ -246,6 +248,9 @@
           <button class="secondary" onclick={() => (showDuplicateReport = true)}>
             Duplicate Detection
           </button>
+          <button class="secondary" onclick={() => (showImportDialog = true)}>
+            Import Files
+          </button>
         {/if}
       </div>
 
@@ -289,6 +294,17 @@
       onClose={() => {
         showDuplicateReport = false;
         if (libraryStore.libraryRoot) libraryStore.loadTree(libraryStore.libraryRoot);
+      }}
+    />
+  {/if}
+
+  {#if showImportDialog && libraryStore.libraryRoot}
+    <ImportDialog
+      libraryRoot={libraryStore.libraryRoot}
+      onClose={() => (showImportDialog = false)}
+      onImported={async (count) => {
+        showImportDialog = false;
+        await libraryStore.loadTree(libraryStore.libraryRoot);
       }}
     />
   {/if}

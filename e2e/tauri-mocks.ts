@@ -193,6 +193,7 @@ export const tauriMockScript = /* js */ `
     list_favorites: () => [],
     list_all_favorites: () => [],
     get_favorite_tracks: () => [],
+    import_tracks: () => 0,
   };
 
   window.__TAURI_INTERNALS__ = {
