@@ -144,7 +144,7 @@ pub fn get_playlist_tracks(conn: &Connection, playlist_id: &str) -> Result<Vec<T
     let mut stmt = conn.prepare(
         "SELECT t.id, t.file_path, t.relative_path, t.library_root, t.title, t.artist,
                 t.album_artist, t.album, t.track_number, t.disc_number, t.year, t.genre,
-                t.duration_secs, t.format, t.file_size, t.modified_at, t.hash, t.has_album_art, t.bitrate
+                t.duration_secs, t.format, t.file_size, t.modified_at, t.hash, t.has_album_art, t.bitrate, t.scanned_at
          FROM playlist_tracks pt
          JOIN tracks t ON t.id = pt.track_id
          WHERE pt.playlist_id = ?1
@@ -217,6 +217,7 @@ mod tests {
             hash: None,
             has_album_art: false,
             bitrate: None,
+            scanned_at: 0,
         };
         library_repo::upsert_track(conn, &track).unwrap();
         conn.query_row(

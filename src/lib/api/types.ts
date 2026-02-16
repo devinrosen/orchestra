@@ -18,6 +18,7 @@ export interface Track {
   hash: string | null;
   has_album_art: boolean;
   bitrate: number | null;
+  scanned_at: number;
 }
 
 export interface AlbumNode {

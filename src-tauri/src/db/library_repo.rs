@@ -6,7 +6,7 @@ use crate::models::device::{AlbumSelection, AlbumSummary, ArtistSummary};
 use crate::models::duplicate::{DuplicateGroup, DuplicateMatchType};
 use crate::models::track::{AlbumNode, ArtistNode, FormatStat, GenreStat, LibraryStats, LibraryTree, Track};
 
-/// Maps a row from a SELECT that returns all 19 Track columns (id first) to a Track struct.
+/// Maps a row from a SELECT that returns all 20 Track columns (id first) to a Track struct.
 pub(crate) fn track_from_row(row: &rusqlite::Row) -> rusqlite::Result<Track> {
     Ok(Track {
         id: Some(row.get(0)?),
@@ -28,21 +28,24 @@ pub(crate) fn track_from_row(row: &rusqlite::Row) -> rusqlite::Result<Track> {
         hash: row.get(16)?,
         has_album_art: row.get(17)?,
         bitrate: row.get(18)?,
+        scanned_at: row.get(19)?,
     })
 }
 
 pub fn upsert_track(conn: &Connection, track: &Track) -> Result<(), AppError> {
+    let now = chrono::Utc::now().timestamp();
     conn.execute(
         "INSERT INTO tracks (file_path, relative_path, library_root, title, artist, album_artist, album,
-         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)
+         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate, scanned_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)
          ON CONFLICT(file_path) DO UPDATE SET
            relative_path=excluded.relative_path, library_root=excluded.library_root,
            title=excluded.title, artist=excluded.artist, album_artist=excluded.album_artist,
            album=excluded.album, track_number=excluded.track_number, disc_number=excluded.disc_number,
            year=excluded.year, genre=excluded.genre, duration_secs=excluded.duration_secs,
            format=excluded.format, file_size=excluded.file_size, modified_at=excluded.modified_at,
-           hash=excluded.hash, has_album_art=excluded.has_album_art, bitrate=excluded.bitrate",
+           hash=excluded.hash, has_album_art=excluded.has_album_art, bitrate=excluded.bitrate,
+           scanned_at=excluded.scanned_at",
         params![
             track.file_path,
             track.relative_path,
@@ -62,6 +65,7 @@ pub fn upsert_track(conn: &Connection, track: &Track) -> Result<(), AppError> {
             track.hash,
             track.has_album_art,
             track.bitrate,
+            now,
         ],
     )?;
     Ok(())
@@ -162,7 +166,7 @@ pub fn get_track_fingerprints(
 pub fn get_library_tree(conn: &Connection, library_root: &str) -> Result<LibraryTree, AppError> {
     let mut stmt = conn.prepare(
         "SELECT id, file_path, relative_path, library_root, title, artist, album_artist, album,
-         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate
+         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate, scanned_at
          FROM tracks WHERE library_root = ?1
          ORDER BY COALESCE(album_artist, artist) COLLATE NOCASE,
                   album COLLATE NOCASE,
@@ -247,7 +251,7 @@ pub fn search_tracks(conn: &Connection, query: &str) -> Result<Vec<Track>, AppEr
     let pattern = format!("%{}%", query);
     let mut stmt = conn.prepare(
         "SELECT id, file_path, relative_path, library_root, title, artist, album_artist, album,
-         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate
+         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate, scanned_at
          FROM tracks
          WHERE title LIKE ?1 OR artist LIKE ?1 OR album LIKE ?1 OR album_artist LIKE ?1
          ORDER BY artist COLLATE NOCASE, album COLLATE NOCASE, track_number
@@ -277,7 +281,7 @@ pub fn get_tracks_for_device(
     let mut idx = 1;
 
     let select_cols = "id, file_path, relative_path, library_root, title, artist, album_artist, album,
-         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate";
+         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate, scanned_at";
 
     if !artist_names.is_empty() {
         let lib_param = format!("?{}", idx);
@@ -368,7 +372,7 @@ pub fn get_incomplete_tracks(
 ) -> Result<Vec<Track>, AppError> {
     let mut stmt = conn.prepare(
         "SELECT id, file_path, relative_path, library_root, title, artist, album_artist, album,
-         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate
+         track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate, scanned_at
          FROM tracks
          WHERE library_root = ?1
            AND (title IS NULL OR artist IS NULL OR album IS NULL OR has_album_art = 0)
@@ -477,7 +481,7 @@ pub fn find_hash_duplicates(
     for hash in dup_hashes {
         let mut track_stmt = conn.prepare(
             "SELECT id, file_path, relative_path, library_root, title, artist, album_artist, album,
-             track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate
+             track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate, scanned_at
              FROM tracks
              WHERE library_root = ?1 AND hash = ?2
              ORDER BY file_path",
@@ -524,7 +528,7 @@ pub fn find_metadata_duplicates(
     for (title, artist, dur) in keys {
         let mut track_stmt = conn.prepare(
             "SELECT id, file_path, relative_path, library_root, title, artist, album_artist, album,
-             track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate
+             track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate, scanned_at
              FROM tracks
              WHERE library_root = ?1
                AND LOWER(title) = ?2
@@ -631,6 +635,7 @@ fn make_track(
         hash: None,
         has_album_art: false,
         bitrate,
+        scanned_at: 0,
     }
 }
 

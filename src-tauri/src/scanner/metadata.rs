@@ -72,5 +72,6 @@ pub fn extract_metadata(path: &Path, library_root: &Path) -> Result<Track, AppEr
         hash: None,
         has_album_art,
         bitrate,
+        scanned_at: 0, // set by upsert_track to the current timestamp
     })
 }
