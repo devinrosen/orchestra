@@ -33,6 +33,7 @@ export const tauriMockScript = /* js */ `
       hash: null,
       has_album_art: true,
       bitrate: opts.bitrate || 900,
+      scanned_at: 1700000000,
     };
   }
 
@@ -194,6 +195,9 @@ export const tauriMockScript = /* js */ `
     list_all_favorites: () => [],
     get_favorite_tracks: () => [],
     import_tracks: () => 0,
+    record_play: () => null,
+    get_recently_added: () => tracks.slice(0, 5),
+    get_recently_played: () => tracks.slice(0, 5),
   };
 
   window.__TAURI_INTERNALS__ = {
