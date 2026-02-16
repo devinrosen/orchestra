@@ -323,6 +323,141 @@ pub async fn delete_duplicate_tracks(
     library_repo::delete_tracks_by_ids(&conn, &track_ids)
 }
 
+/// Copy audio files from `source_paths` into `library_root`, extract metadata, and upsert to DB.
+/// Progress events are delivered via `on_event`. Returns the count of successfully imported tracks.
+///
+/// Extracted from `import_tracks` so the logic can be unit-tested without a live Tauri `Channel`.
+fn do_import_tracks(
+    db: &Mutex<Connection>,
+    source_paths: &[String],
+    library_root: &str,
+    mut on_event: impl FnMut(ProgressEvent),
+) -> Result<usize, AppError> {
+    let root = Path::new(library_root);
+    if !root.exists() || !root.is_dir() {
+        return Err(AppError::PathNotAccessible(library_root.to_string()));
+    }
+
+    let total = source_paths.len();
+    let mut imported = 0usize;
+
+    for (i, source_path) in source_paths.iter().enumerate() {
+        let src = Path::new(source_path);
+
+        // Skip missing source files
+        if !src.exists() {
+            eprintln!("import_tracks: source path does not exist, skipping: {}", source_path);
+            continue;
+        }
+
+        // Skip non-audio files
+        if !is_audio_file(src) {
+            eprintln!("import_tracks: not an audio file, skipping: {}", source_path);
+            continue;
+        }
+
+        // Determine destination path with collision handling
+        let filename = match src.file_name() {
+            Some(n) => n.to_string_lossy().to_string(),
+            None => {
+                eprintln!("import_tracks: cannot determine filename, skipping: {}", source_path);
+                continue;
+            }
+        };
+
+        let stem = Path::new(&filename)
+            .file_stem()
+            .map(|s| s.to_string_lossy().to_string())
+            .unwrap_or_default();
+        let ext = Path::new(&filename)
+            .extension()
+            .map(|e| e.to_string_lossy().to_string());
+
+        let dest_path = {
+            let candidate = root.join(&filename);
+            if !candidate.exists() {
+                candidate
+            } else {
+                let mut found = None;
+                for n in 1u32..=99 {
+                    let new_name = match &ext {
+                        Some(e) => format!("{}_{}.{}", stem, n, e),
+                        None => format!("{}_{}", stem, n),
+                    };
+                    let c = root.join(&new_name);
+                    if !c.exists() {
+                        found = Some(c);
+                        break;
+                    }
+                }
+                match found {
+                    Some(p) => p,
+                    None => {
+                        return Err(AppError::General(format!(
+                            "Could not find a free filename for {} after 99 attempts",
+                            filename
+                        )));
+                    }
+                }
+            }
+        };
+
+        // Copy the file
+        if let Err(e) = std::fs::copy(src, &dest_path) {
+            eprintln!("import_tracks: failed to copy {}: {}", source_path, e);
+            continue;
+        }
+
+        // Send progress before metadata extraction
+        let _ = on_event(ProgressEvent::ScanProgress {
+            files_found: total,
+            files_processed: i + 1,
+            current_file: dest_path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .to_string(),
+            dirs_total: 0,
+            dirs_completed: 0,
+        });
+
+        // Extract metadata from the copied file
+        match metadata::extract_metadata(&dest_path, root) {
+            Ok(track) => {
+                let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
+                library_repo::upsert_track(&conn, &track)?;
+                imported += 1;
+            }
+            Err(e) => {
+                eprintln!(
+                    "import_tracks: failed to extract metadata for {}: {}",
+                    dest_path.display(),
+                    e
+                );
+            }
+        }
+    }
+
+    on_event(ProgressEvent::ScanComplete {
+        total_files: imported,
+        duration_ms: 0,
+    });
+
+    Ok(imported)
+}
+
+#[tauri::command]
+pub async fn import_tracks(
+    db: tauri::State<'_, Mutex<Connection>>,
+    source_paths: Vec<String>,
+    library_root: String,
+    on_progress: Channel<ProgressEvent>,
+) -> Result<usize, AppError> {
+    do_import_tracks(&db, &source_paths, &library_root, |event| {
+        let _ = on_progress.send(event);
+    })
+}
+
 #[cfg(test)]
 mod hash_progress_tests {
     use super::*;
@@ -401,6 +536,189 @@ mod hash_progress_tests {
         assert!(
             collected.is_empty(),
             "expected no events when all tracks are already hashed"
+        );
+    }
+}
+
+#[cfg(test)]
+mod import_tracks_tests {
+    use super::*;
+    use crate::db::schema;
+    use rusqlite::Connection;
+    use std::sync::Mutex;
+    use tempfile::TempDir;
+
+    fn setup_db() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::run_migrations(&conn).unwrap();
+        conn
+    }
+
+    /// Create a fake audio file (not a real audio format — lofty will fail to parse it,
+    /// but it is sufficient to test file copy and collision logic).
+    fn write_fake_audio(dir: &std::path::Path, name: &str) -> String {
+        let path = dir.join(name);
+        std::fs::write(&path, b"fake audio content").unwrap();
+        path.to_string_lossy().to_string()
+    }
+
+    /// Create a fake non-audio file.
+    fn write_fake_text(dir: &std::path::Path, name: &str) -> String {
+        let path = dir.join(name);
+        std::fs::write(&path, b"this is a text file").unwrap();
+        path.to_string_lossy().to_string()
+    }
+
+    #[test]
+    fn test_import_single_file_success() {
+        let library_dir = TempDir::new().unwrap();
+        let source_dir = TempDir::new().unwrap();
+
+        let source_path = write_fake_audio(source_dir.path(), "track.flac");
+
+        let conn = setup_db();
+        let db = Mutex::new(conn);
+
+        let result = do_import_tracks(
+            &db,
+            &[source_path],
+            library_dir.path().to_str().unwrap(),
+            |_| {},
+        );
+
+        // The function must not error even when lofty cannot parse the fake binary content.
+        assert!(result.is_ok(), "expected Ok, got {:?}", result);
+
+        // The file must be copied into the library root regardless of metadata extraction outcome.
+        let dest = library_dir.path().join("track.flac");
+        assert!(dest.exists(), "expected track.flac to be copied into library_root");
+    }
+
+    #[test]
+    fn test_import_collision_renamed() {
+        let library_dir = TempDir::new().unwrap();
+        let source_dir = TempDir::new().unwrap();
+
+        // Pre-place a file named track.flac in the library root
+        std::fs::write(library_dir.path().join("track.flac"), b"original").unwrap();
+
+        // Import another file also named track.flac from a different source directory
+        let source_path = write_fake_audio(source_dir.path(), "track.flac");
+
+        let conn = setup_db();
+        let db = Mutex::new(conn);
+
+        let _result = do_import_tracks(
+            &db,
+            &[source_path],
+            library_dir.path().to_str().unwrap(),
+            |_| {},
+        );
+
+        // Both the original and the renamed copy must exist
+        assert!(
+            library_dir.path().join("track.flac").exists(),
+            "original track.flac must still exist"
+        );
+        assert!(
+            library_dir.path().join("track_1.flac").exists(),
+            "imported file must be renamed to track_1.flac"
+        );
+    }
+
+    #[test]
+    fn test_import_non_audio_file_skipped() {
+        let library_dir = TempDir::new().unwrap();
+        let source_dir = TempDir::new().unwrap();
+
+        let source_path = write_fake_text(source_dir.path(), "readme.txt");
+
+        let conn = setup_db();
+        let db = Mutex::new(conn);
+
+        let result = do_import_tracks(
+            &db,
+            &[source_path],
+            library_dir.path().to_str().unwrap(),
+            |_| {},
+        );
+
+        // Non-audio files must be skipped silently — no error, count = 0
+        assert!(result.is_ok(), "expected Ok for non-audio file, got {:?}", result);
+        assert_eq!(result.unwrap(), 0, "expected 0 imported tracks");
+
+        // Nothing must be copied into the library root
+        let entries: Vec<_> = std::fs::read_dir(library_dir.path())
+            .unwrap()
+            .filter_map(|e| e.ok())
+            .collect();
+        assert!(entries.is_empty(), "expected library root to remain empty");
+    }
+
+    #[test]
+    fn test_import_missing_source_path() {
+        let library_dir = TempDir::new().unwrap();
+        let source_dir = TempDir::new().unwrap();
+
+        let missing_path = source_dir.path().join("does_not_exist.flac").to_string_lossy().to_string();
+        let existing_path = write_fake_audio(source_dir.path(), "present.flac");
+
+        let conn = setup_db();
+        let db = Mutex::new(conn);
+
+        let result = do_import_tracks(
+            &db,
+            &[missing_path, existing_path],
+            library_dir.path().to_str().unwrap(),
+            |_| {},
+        );
+
+        // Missing source path must be skipped — function must not error
+        assert!(result.is_ok(), "expected Ok when source path is missing, got {:?}", result);
+
+        // The valid file must be copied (even if metadata extraction fails on fake content)
+        let dest = library_dir.path().join("present.flac");
+        assert!(dest.exists(), "expected present.flac to be copied despite missing sibling path");
+    }
+
+    #[test]
+    fn test_import_progress_events_emitted() {
+        let library_dir = TempDir::new().unwrap();
+        let source_dir = TempDir::new().unwrap();
+
+        let paths: Vec<String> = (1..=3)
+            .map(|i| write_fake_audio(source_dir.path(), &format!("track{}.flac", i)))
+            .collect();
+
+        let conn = setup_db();
+        let db = Mutex::new(conn);
+
+        let mut events: Vec<ProgressEvent> = Vec::new();
+        let _result = do_import_tracks(
+            &db,
+            &paths,
+            library_dir.path().to_str().unwrap(),
+            |evt| events.push(evt),
+        );
+
+        // At least one ScanProgress event must be emitted (one per successfully copied file)
+        let progress_count = events
+            .iter()
+            .filter(|e| matches!(e, ProgressEvent::ScanProgress { .. }))
+            .count();
+        assert!(progress_count > 0, "expected at least one ScanProgress event");
+
+        // Exactly one ScanComplete must be emitted at the end
+        let complete_events: Vec<_> = events
+            .iter()
+            .filter(|e| matches!(e, ProgressEvent::ScanComplete { .. }))
+            .collect();
+        assert_eq!(complete_events.len(), 1, "expected exactly one ScanComplete event");
+
+        // ScanComplete must be the last event
+        assert!(
+            matches!(events.last(), Some(ProgressEvent::ScanComplete { .. })),
+            "ScanComplete must be the last event"
         );
     }
 }

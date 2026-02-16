@@ -45,6 +45,7 @@ pub fn run() {
             commands::library::get_library_stats,
             commands::library::find_duplicates,
             commands::library::delete_duplicate_tracks,
+            commands::library::import_tracks,
             commands::profile::create_profile,
             commands::profile::get_profile,
             commands::profile::list_profiles,
