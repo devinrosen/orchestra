@@ -13,6 +13,7 @@
   import ProgressBar from "../lib/components/ProgressBar.svelte";
   import { libraryStore } from "../lib/stores/library.svelte";
   import { playerStore } from "../lib/stores/player.svelte";
+  import { onMount, onDestroy } from "svelte";
 
   const searchPlaceholders: Record<LibraryViewMode, string> = {
     artist: "Search artists...",
@@ -23,6 +24,24 @@
 
   let libraryTab = $state<"browse" | "manage">("browse");
   let editingTrack = $state<Track | null>(null);
+  let searchInputEl = $state<HTMLInputElement | null>(null);
+
+  function handleFocusSearch() {
+    // Switch to browse tab so the search input is visible
+    libraryTab = "browse";
+    // Wait one tick for the tab to render before focusing
+    setTimeout(() => {
+      searchInputEl?.focus();
+    }, 0);
+  }
+
+  onMount(() => {
+    window.addEventListener("focus-search", handleFocusSearch);
+  });
+
+  onDestroy(() => {
+    window.removeEventListener("focus-search", handleFocusSearch);
+  });
   let editingAlbum = $state<{ tracks: Track[]; albumName: string; artistName: string } | null>(null);
   let showMetadataReport = $state(false);
   let showDuplicateReport = $state(false);
@@ -156,6 +175,7 @@
           oninput={onSearchInput}
           value={libraryStore.searchQuery}
           class="search-input"
+          bind:this={searchInputEl}
         />
         {#if libraryStore.searchQuery}
           <button class="search-clear-btn" onclick={clearSearch} aria-label="Clear search">&times;</button>

@@ -1,6 +1,25 @@
 <script lang="ts">
   import * as commands from "../lib/api/commands";
   import { themeStore, type ThemePreference } from "../lib/stores/theme.svelte";
+  import KeybindingRow from "../lib/components/KeybindingRow.svelte";
+  import { shortcutsStore, type ShortcutAction } from "../lib/stores/shortcuts.svelte";
+
+  const ALL_ACTIONS: ShortcutAction[] = [
+    "play-pause",
+    "next-track",
+    "prev-track",
+    "volume-up",
+    "volume-down",
+    "nav-library",
+    "nav-favorites",
+    "nav-playlists",
+    "nav-profiles",
+    "nav-devices",
+    "nav-settings",
+    "rescan-library",
+    "focus-search",
+    "show-shortcuts",
+  ];
 
   let settings = $state<Record<string, string>>({});
   let loading = $state(true);
@@ -91,6 +110,20 @@
       </div>
     </div>
 
+    <div class="settings-group">
+      <h3>Keyboard Shortcuts</h3>
+
+      <div class="shortcut-rows">
+        {#each ALL_ACTIONS as action}
+          <KeybindingRow {action} />
+        {/each}
+      </div>
+
+      <button class="secondary reset-btn" onclick={() => shortcutsStore.resetToDefaults()}>
+        Reset to Defaults
+      </button>
+    </div>
+
     {#if saved}
       <div class="save-indicator">Settings saved</div>
     {/if}
@@ -145,5 +178,18 @@
   .save-indicator {
     color: var(--success);
     font-size: 13px;
+  }
+
+  .shortcut-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .reset-btn {
+    margin-top: 4px;
+    align-self: flex-start;
+    font-size: 13px;
+    padding: 6px 14px;
   }
 </style>
