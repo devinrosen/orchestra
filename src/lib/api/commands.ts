@@ -250,3 +250,13 @@ export function listAllFavorites(): Promise<Favorite[]> {
 export function getFavoriteTracks(): Promise<Track[]> {
   return invoke("get_favorite_tracks");
 }
+
+export function importTracks(
+  sourcePaths: string[],
+  libraryRoot: string,
+  onProgress: (event: ProgressEvent) => void,
+): Promise<number> {
+  const channel = new Channel<ProgressEvent>();
+  channel.onmessage = onProgress;
+  return invoke("import_tracks", { sourcePaths, libraryRoot, onProgress: channel });
+}
