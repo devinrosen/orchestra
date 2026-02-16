@@ -57,6 +57,24 @@ Three-phase pattern: **Diff → Preview → Execute**
 - **db/** — rusqlite repos. Schema uses WAL mode, foreign keys. `sync_state` table keyed by `(profile_id, relative_path)`.
 - **models/** — Shared types serialized via serde between Rust and TypeScript. `ProgressEvent` is a tagged enum.
 
+### Patterns to Follow
+
+New features follow a standard five-layer pipeline: **model → repo → command → store → page/component**.
+
+1. **Model** (`src-tauri/src/models/`): Define Rust structs with `#[derive(Debug, Clone, Serialize, Deserialize)]`. Include request/response types as needed. Example: `src-tauri/src/models/playlist.rs` defines `Playlist`, `PlaylistWithTracks`, `CreatePlaylistRequest`, etc.
+
+2. **Repo** (`src-tauri/src/db/`): Pure DB access functions that accept a `&Connection` and return `Result<T, AppError>`. No Tauri state here. Example: `src-tauri/src/db/playlist_repo.rs` implements `create_playlist`, `list_playlists`, `get_playlist`, `update_playlist`, `delete_playlist`.
+
+3. **Command** (`src-tauri/src/commands/`): `#[tauri::command]` async fns that accept `tauri::State<'_, Mutex<Connection>>`, lock the DB, delegate to the repo, and return `Result<T, AppError>`. Register each new command in `generate_handler![]` in `src-tauri/src/lib.rs`. Example: `src-tauri/src/commands/playlist_cmd.rs`.
+
+4. **API layer** (`src/lib/api/`): Two files to update:
+   - `types.ts` — TypeScript types mirroring Rust structs exactly (field names, optional fields match `Option<T>`)
+   - `commands.ts` — typed `invoke()` wrappers, one function per command. Also add a mock in `e2e/tauri-mocks.ts` for Playwright UI tests.
+
+5. **Store** (`src/lib/stores/`): A Svelte 5 rune-based class using `$state` and `$derived`, exported as a singleton. Methods call `commands.*`, update state, and set `error` on catch. Example: `src/lib/stores/playlist.svelte.ts` → `export const playlistStore = new PlaylistStore()`.
+
+6. **Page/Component** (`src/lib/components/`): Imports the store singleton, reads reactive state, calls store methods on user interaction. Example: `src/lib/components/PlaylistPicker.svelte` imports `playlistStore` and calls `playlistStore.addTracks(...)`.
+
 ### Frontend Structure
 
 Simple conditional-rendering router in `App.svelte` (no SvelteKit). Pages: Library (scan + Artist>Album>Track tree), SyncProfiles (CRUD), SyncPreview (diff + conflicts + progress), Settings. Components are in `src/lib/components/`.
@@ -76,6 +94,7 @@ TypeScript types in `src/lib/api/types.ts` mirror Rust structs exactly.
 - **No hardcoded colors in components**: All colors in `.svelte` `<style>` blocks must use CSS custom properties from `src/app.css` (e.g., `var(--bg-primary)`, `var(--accent)`, `var(--border)`). Never introduce raw hex (`#fff`), `rgb()`, or `rgba()` values — use or extend the theme variables in `app.css` instead. This ensures UI skins/themes work correctly.
 - **`track_from_row` positional column convention**: `library_repo::track_from_row` maps Track columns by positional index (0-18). All SELECT statements that feed into `track_from_row` must list columns in the exact same order: `id, file_path, relative_path, library_root, title, artist, album_artist, album, track_number, disc_number, year, genre, duration_secs, format, file_size, modified_at, hash, has_album_art, bitrate`. Adding a column requires updating `track_from_row` AND every SELECT that uses it. See `library_repo.rs`, `playlist_repo.rs`, and `favorite_repo.rs`.
 - **File deletion is permanent** (`std::fs::remove_file`): Sync operations delete files permanently because the source copy still exists. For user-initiated destructive operations (e.g., duplicate deletion), permanent deletion is acceptable when behind an explicit confirm dialog. If a future feature deletes files where no other copy exists, consider adding the `trash` crate for OS trash-bin support.
+- **`libraryStore.libraryRoot` is falsy until a scan or load completes**: `libraryRoot` is typed `string` and initialized to `""`. It stays `""` if no library has been scanned yet, if `getSetting("library_root")` returns null/undefined on startup, or before `loadTree` resolves. `tree` can be non-null while `libraryRoot` is still `""` during the brief async gap. Always guard reads of `libraryRoot` before using it in commands or passing it to child components: `if (libraryStore.libraryRoot) { ... }` and `{#if condition && libraryStore.libraryRoot}` in templates. See `Library.svelte` for the canonical guarding pattern.
 
 ## Memory
 

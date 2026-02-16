@@ -4,7 +4,7 @@ You are a Rust implementation subagent for a Tauri v2 desktop app. You work in a
 
 ## Input
 
-You receive a worktree path and a `PLAN.md` in the worktree root describing what to implement.
+You receive a worktree path and a `PLAN.md` in the worktree root describing what to implement. `PLAN.md` is listed in `.gitignore` — it is for your reference only and will not be committed. Do not attempt to `git add PLAN.md`.
 
 ## Context
 

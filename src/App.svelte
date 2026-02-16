@@ -9,6 +9,7 @@
   import Statistics from "./pages/Statistics.svelte";
   import Playlists from "./pages/Playlists.svelte";
   import Favorites from "./pages/Favorites.svelte";
+  import RecentlyAdded from "./pages/RecentlyAdded.svelte";
   import GlobalStatusBar from "./lib/components/GlobalStatusBar.svelte";
   import NowPlayingBar from "./lib/components/NowPlayingBar.svelte";
   import VisualizerPanel from "./lib/components/VisualizerPanel.svelte";
@@ -21,7 +22,7 @@
   import { favoritesStore } from "./lib/stores/favorites.svelte";
   import { shortcutsStore } from "./lib/stores/shortcuts.svelte";
 
-  type Page = "library" | "favorites" | "statistics" | "playlists" | "profiles" | "sync-preview" | "devices" | "settings";
+  type Page = "library" | "recent" | "favorites" | "statistics" | "playlists" | "profiles" | "sync-preview" | "devices" | "settings";
 
   let currentPage = $state<Page>("library");
   let pageData = $state<Record<string, unknown>>({});
@@ -133,8 +134,9 @@
 
   const navItems: { page: Page; label: string; title: string }[] = [
     { page: "library",    label: "Library",       title: "Library (1)" },
+    { page: "recent",     label: "Recent",        title: "Recent" },
     { page: "favorites",  label: "Favorites",     title: "Favorites (2)" },
-    { page: "statistics", label: "Statistics",    title: "Statistics" },
+    { page: "statistics", label: "Statistics",     title: "Statistics" },
     { page: "playlists",  label: "Playlists",     title: "Playlists (3)" },
     { page: "profiles",   label: "Sync Profiles", title: "Sync Profiles (4)" },
     { page: "devices",    label: "Devices",       title: "Devices (5)" },
@@ -162,6 +164,8 @@
     <main class="content">
     {#if currentPage === "library"}
       <Library />
+    {:else if currentPage === "recent"}
+      <RecentlyAdded />
     {:else if currentPage === "favorites"}
       <Favorites />
     {:else if currentPage === "statistics"}

@@ -4,5 +4,6 @@ pub mod library;
 pub mod metadata_cmd;
 pub mod playlist_cmd;
 pub mod profile;
+pub mod recent_cmd;
 pub mod settings;
 pub mod sync_cmd;

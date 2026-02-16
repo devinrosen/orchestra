@@ -144,6 +144,17 @@ pub fn run_migrations(conn: &Connection) -> Result<(), AppError> {
         )?;
     }
 
+    let has_scanned_at: bool = conn
+        .prepare("SELECT COUNT(*) FROM pragma_table_info('tracks') WHERE name='scanned_at'")?
+        .query_row([], |row| row.get::<_, i64>(0))
+        .map(|count| count > 0)?;
+
+    if !has_scanned_at {
+        conn.execute_batch(
+            "ALTER TABLE tracks ADD COLUMN scanned_at INTEGER NOT NULL DEFAULT 0;",
+        )?;
+    }
+
     conn.execute_batch(
         "
         CREATE TABLE IF NOT EXISTS favorites (
@@ -154,6 +165,14 @@ pub fn run_migrations(conn: &Connection) -> Result<(), AppError> {
             UNIQUE(entity_type, entity_id)
         );
         CREATE INDEX IF NOT EXISTS idx_favorites_type ON favorites(entity_type);
+
+        CREATE TABLE IF NOT EXISTS play_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,
+            played_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_play_history_track ON play_history(track_id);
+        CREATE INDEX IF NOT EXISTS idx_play_history_played_at ON play_history(played_at DESC);
         ",
     )?;
 

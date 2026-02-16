@@ -260,3 +260,15 @@ export function importTracks(
   channel.onmessage = onProgress;
   return invoke("import_tracks", { sourcePaths, libraryRoot, onProgress: channel });
 }
+
+export function recordPlay(trackId: number): Promise<void> {
+  return invoke("record_play", { trackId });
+}
+
+export function getRecentlyAdded(days: number, limit: number): Promise<Track[]> {
+  return invoke("get_recently_added", { days, limit });
+}
+
+export function getRecentlyPlayed(limit: number): Promise<Track[]> {
+  return invoke("get_recently_played", { limit });
+}
