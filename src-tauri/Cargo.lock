@@ -2651,6 +2651,7 @@ dependencies = [
  "orchestra-core",
  "ratatui",
  "rodio",
+ "rusqlite",
 ]
 
 [[package]]

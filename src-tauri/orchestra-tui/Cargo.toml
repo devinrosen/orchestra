@@ -1,0 +1,17 @@
+[package]
+name = "orchestra-tui"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "orchestra-tui"
+path = "src/main.rs"
+
+[dependencies]
+orchestra-core = { path = "../orchestra-core" }
+ratatui = "0.29"
+crossterm = "0.28"
+rodio = { version = "0.19", features = ["symphonia-all"] }
+dirs = "6"
+anyhow = "1"
+rusqlite = { version = "0.32", features = ["bundled"] }
