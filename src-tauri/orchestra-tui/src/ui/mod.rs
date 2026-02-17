@@ -13,12 +13,16 @@ pub fn draw(f: &mut Frame, app: &App) {
     let (top, bottom) = layout::split_frame(f);
     let (artist_area, album_area, track_area) = layout::split_top(top);
 
+    let filtered = app.filtered_artists();
+
     artists::render(
         f,
         artist_area,
-        app.artists(),
+        &filtered,
         app.selected_artist,
         app.focused_pane == Pane::Artists,
+        app.filter_mode,
+        &app.filter_text,
     );
 
     albums::render(
@@ -37,5 +41,12 @@ pub fn draw(f: &mut Frame, app: &App) {
         app.focused_pane == Pane::Tracks,
     );
 
-    now_playing::render(f, bottom, &app.now_playing, app.volume, &app.status_msg);
+    now_playing::render(
+        f,
+        bottom,
+        &app.now_playing,
+        app.volume,
+        &app.status_msg,
+        app.filter_mode,
+    );
 }

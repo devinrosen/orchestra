@@ -52,7 +52,7 @@ Statuses: `[ ]` not started · `[designed]` plan exists · `[implemented]` code 
 
 ## Terminal UI (orchestra-tui)
 
-- [ ] **Artist filter** — Type `/` to enter filter mode, then type a text string to filter the artist list in real time. Press `Escape` to clear the filter and return to the full list. Press `Enter` to lock the filter and navigate the results.
+- [implemented] **Artist filter** — Type `/` to enter filter mode, then type a text string to filter the artist list in real time. Press `Escape` to clear the filter and return to the full list. Press `Enter` to lock the filter and navigate the results.
 
 ## Sync Profiles
 
