@@ -1,16 +1,12 @@
 mod commands;
-mod db;
 mod device;
-mod error;
-mod models;
-mod scanner;
 mod sync;
 
 use std::sync::Mutex;
 use rusqlite::Connection;
 use tauri::Manager;
 
-use db::schema;
+use orchestra_core::db::schema;
 use sync::progress::CancelToken;
 
 fn init_database(app: &tauri::App) -> Result<Connection, Box<dyn std::error::Error>> {

@@ -3,9 +3,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::ipc::Channel;
 
-use crate::error::AppError;
-use crate::models::diff::{DiffAction, DiffResult};
-use crate::models::progress::ProgressEvent;
+use orchestra_core::error::AppError;
+use orchestra_core::models::diff::{DiffAction, DiffResult};
+use orchestra_core::models::progress::ProgressEvent;
 
 pub fn execute_one_way_sync(
     diff: &DiffResult,

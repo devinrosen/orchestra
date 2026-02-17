@@ -4,13 +4,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::ipc::Channel;
 
-use crate::db::sync_state_repo::FileBaseline;
-use crate::error::AppError;
-use crate::models::conflict::{Conflict, ConflictResolution, ConflictType, Resolution};
-use crate::models::diff::{DiffAction, DiffDirection, DiffEntry, DiffResult};
-use crate::models::progress::ProgressEvent;
-use crate::models::track::is_audio_file;
-use crate::scanner::hasher;
+use orchestra_core::db::sync_state_repo::FileBaseline;
+use orchestra_core::error::AppError;
+use orchestra_core::models::conflict::{Conflict, ConflictResolution, ConflictType, Resolution};
+use orchestra_core::models::diff::{DiffAction, DiffDirection, DiffEntry, DiffResult};
+use orchestra_core::models::progress::ProgressEvent;
+use orchestra_core::models::track::is_audio_file;
+use orchestra_core::scanner::hasher;
 use crate::sync::one_way::copy_file_safe;
 
 struct FileState {

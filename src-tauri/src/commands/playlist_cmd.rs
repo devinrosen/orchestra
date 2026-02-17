@@ -1,9 +1,9 @@
 use std::sync::Mutex;
 use rusqlite::Connection;
 
-use crate::db::playlist_repo;
-use crate::error::AppError;
-use crate::models::playlist::{
+use orchestra_core::db::playlist_repo;
+use orchestra_core::error::AppError;
+use orchestra_core::models::playlist::{
     AddTracksRequest, CreatePlaylistRequest, Playlist, PlaylistWithTracks, RemoveTracksRequest,
     ReorderTracksRequest, UpdatePlaylistRequest,
 };

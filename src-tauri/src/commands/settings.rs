@@ -1,7 +1,7 @@
 use std::sync::Mutex;
 use rusqlite::{params, Connection};
 
-use crate::error::AppError;
+use orchestra_core::error::AppError;
 
 #[tauri::command]
 pub async fn get_setting(

@@ -1,10 +1,10 @@
 use std::sync::Mutex;
 use rusqlite::Connection;
 
-use crate::db::favorite_repo;
-use crate::error::AppError;
-use crate::models::favorite::Favorite;
-use crate::models::track::Track;
+use orchestra_core::db::favorite_repo;
+use orchestra_core::error::AppError;
+use orchestra_core::models::favorite::Favorite;
+use orchestra_core::models::track::Track;
 
 #[tauri::command]
 pub async fn toggle_favorite(

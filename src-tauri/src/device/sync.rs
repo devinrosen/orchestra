@@ -5,12 +5,12 @@ use std::sync::Arc;
 use tauri::ipc::Channel;
 use unicode_normalization::UnicodeNormalization;
 
-use crate::db::device_repo::CachedFileHash;
-use crate::error::AppError;
-use crate::models::diff::{DiffAction, DiffDirection, DiffEntry, DiffResult};
-use crate::models::progress::ProgressEvent;
-use crate::models::track::{is_audio_file, Track};
-use crate::scanner::hasher;
+use orchestra_core::db::device_repo::CachedFileHash;
+use orchestra_core::error::AppError;
+use orchestra_core::models::diff::{DiffAction, DiffDirection, DiffEntry, DiffResult};
+use orchestra_core::models::progress::ProgressEvent;
+use orchestra_core::models::track::{is_audio_file, Track};
+use orchestra_core::scanner::hasher;
 use crate::sync::one_way::{copy_file_safe, remove_empty_parents};
 
 struct FileInfo {

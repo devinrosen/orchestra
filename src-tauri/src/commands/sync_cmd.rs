@@ -3,12 +3,12 @@ use std::sync::Mutex;
 use rusqlite::Connection;
 use tauri::ipc::Channel;
 
-use crate::db::{profile_repo, sync_state_repo};
-use crate::error::AppError;
-use crate::models::conflict::{Conflict, ConflictResolution};
-use crate::models::diff::DiffResult;
-use crate::models::progress::ProgressEvent;
-use crate::models::sync_profile::SyncMode;
+use orchestra_core::db::{profile_repo, sync_state_repo};
+use orchestra_core::error::AppError;
+use orchestra_core::models::conflict::{Conflict, ConflictResolution};
+use orchestra_core::models::diff::DiffResult;
+use orchestra_core::models::progress::ProgressEvent;
+use orchestra_core::models::sync_profile::SyncMode;
 use crate::sync::progress::CancelToken;
 use crate::sync::{diff, one_way, two_way};
 
@@ -123,8 +123,8 @@ fn build_post_sync_baselines(
     target: &Path,
     exclude_patterns: &[String],
 ) -> Result<Vec<sync_state_repo::FileBaseline>, AppError> {
-    use crate::models::track::is_audio_file;
-    use crate::scanner::hasher;
+    use orchestra_core::models::track::is_audio_file;
+    use orchestra_core::scanner::hasher;
     use std::collections::HashSet;
 
     let compiled: Vec<glob::Pattern> = exclude_patterns

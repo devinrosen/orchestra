@@ -2,10 +2,10 @@ use std::path::Path;
 use std::sync::Mutex;
 use rusqlite::Connection;
 
-use crate::db::library_repo;
-use crate::error::AppError;
-use crate::models::track::{AlbumArt, Track, TrackMetadataUpdate};
-use crate::scanner::{metadata, writer};
+use orchestra_core::db::library_repo;
+use orchestra_core::error::AppError;
+use orchestra_core::models::track::{AlbumArt, Track, TrackMetadataUpdate};
+use orchestra_core::scanner::{metadata, writer};
 
 #[tauri::command]
 pub async fn get_track_artwork(file_path: String) -> Result<Option<AlbumArt>, AppError> {

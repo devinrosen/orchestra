@@ -2,9 +2,9 @@ use std::sync::Mutex;
 
 use rusqlite::Connection;
 
-use crate::db::recent_repo;
-use crate::error::AppError;
-use crate::models::track::Track;
+use orchestra_core::db::recent_repo;
+use orchestra_core::error::AppError;
+use orchestra_core::models::track::Track;
 
 #[tauri::command]
 pub async fn record_play(

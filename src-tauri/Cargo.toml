@@ -1,3 +1,7 @@
+[workspace]
+members = [".", "orchestra-core", "orchestra-tui"]
+resolver = "2"
+
 [package]
 name = "orchestra-app"
 version = "0.1.0"
@@ -12,6 +16,7 @@ name = "orchestra-app"
 path = "src/main.rs"
 
 [dependencies]
+orchestra-core = { path = "orchestra-core" }
 tauri = { version = "2", features = ["protocol-asset"] }
 tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
