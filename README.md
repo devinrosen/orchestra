@@ -78,6 +78,22 @@ cargo run -p orchestra-tui -- --db /path/to/orchestra.db
 
 The default database location is `~/Library/Application Support/com.orchestra.app/orchestra.db` on macOS.
 
+### Keybindings
+
+| Key | Action |
+|-----|--------|
+| `j` / `↓` | Move down in current pane |
+| `k` / `↑` | Move up in current pane |
+| `Tab` | Next pane (Artists → Albums → Tracks) |
+| `Shift+Tab` | Previous pane |
+| `Enter` | Select artist/album or play track |
+| `Space` | Toggle play/pause |
+| `n` | Next track |
+| `p` | Previous track |
+| `+` | Volume up |
+| `-` | Volume down |
+| `q` | Quit |
+
 ## Running Tests
 
 ```bash
