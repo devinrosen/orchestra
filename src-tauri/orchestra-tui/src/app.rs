@@ -46,6 +46,8 @@ pub struct App {
     pub volume: f32,
     pub status_msg: Option<String>,
     pub should_quit: bool,
+    pub filter_mode: bool,
+    pub filter_text: String,
 }
 
 impl App {
@@ -61,6 +63,8 @@ impl App {
             volume: 0.7,
             status_msg: None,
             should_quit: false,
+            filter_mode: false,
+            filter_text: String::new(),
         }
     }
 
@@ -71,11 +75,42 @@ impl App {
         }
     }
 
+    /// Returns artists matching the current filter, paired with their original index.
+    /// When filter_text is empty, returns all artists with their original indices.
+    pub fn filtered_artists(&self) -> Vec<(usize, &ArtistNode)> {
+        if self.filter_text.is_empty() {
+            self.tree
+                .artists
+                .iter()
+                .enumerate()
+                .collect()
+        } else {
+            let needle = self.filter_text.to_lowercase();
+            self.tree
+                .artists
+                .iter()
+                .enumerate()
+                .filter(|(_, a)| a.name.to_lowercase().contains(&needle))
+                .collect()
+        }
+    }
+
+    /// Maps `selected_artist` (index into filtered list) back to the real tree index.
+    /// Returns 0 if the filtered list is empty.
+    pub fn real_artist_index(&self) -> usize {
+        let filtered = self.filtered_artists();
+        filtered
+            .get(self.selected_artist)
+            .map(|(real_idx, _)| *real_idx)
+            .unwrap_or(0)
+    }
+
     /// Returns the albums for the currently selected artist (if any).
     pub fn current_albums(&self) -> &[AlbumNode] {
+        let real_idx = self.real_artist_index();
         self.tree
             .artists
-            .get(self.selected_artist)
+            .get(real_idx)
             .map(|a| a.albums.as_slice())
             .unwrap_or(&[])
     }
@@ -112,16 +147,72 @@ impl App {
     }
 
     pub fn handle_key(&mut self, key: KeyCode) {
+        // Filter mode captures most keys
+        if self.filter_mode {
+            match key {
+                KeyCode::Esc => {
+                    // Exit filter mode, clear filter
+                    self.filter_mode = false;
+                    self.filter_text.clear();
+                    self.selected_artist = 0;
+                    self.selected_album = 0;
+                    self.selected_track = 0;
+                }
+                KeyCode::Enter => {
+                    // Lock the filter and exit filter mode
+                    self.filter_mode = false;
+                    self.selected_artist = 0;
+                    self.selected_album = 0;
+                    self.selected_track = 0;
+                }
+                KeyCode::Backspace => {
+                    self.filter_text.pop();
+                    self.selected_artist = 0;
+                    self.selected_album = 0;
+                    self.selected_track = 0;
+                }
+                KeyCode::Char(c) => {
+                    self.filter_text.push(c);
+                    self.selected_artist = 0;
+                    self.selected_album = 0;
+                    self.selected_track = 0;
+                }
+                // All other keys (j/k/Tab/etc.) are ignored while in filter mode
+                _ => {}
+            }
+            return;
+        }
+
+        // Not in filter mode
         match key {
             // Quit
             KeyCode::Char('q') => {
                 self.should_quit = true;
             }
 
+            // Enter filter mode
+            KeyCode::Char('/') => {
+                self.filter_mode = true;
+                self.filter_text.clear();
+                self.selected_artist = 0;
+                self.selected_album = 0;
+                self.selected_track = 0;
+            }
+
+            // Esc when filter is active (but not in filter mode) → clear filter
+            KeyCode::Esc => {
+                if !self.filter_text.is_empty() {
+                    self.filter_text.clear();
+                    self.selected_artist = 0;
+                    self.selected_album = 0;
+                    self.selected_track = 0;
+                }
+            }
+
             // Navigation: down
             KeyCode::Char('j') | KeyCode::Down => match self.focused_pane {
                 Pane::Artists => {
-                    let max = self.tree.artists.len().saturating_sub(1);
+                    let max = self.filtered_artists().len().saturating_sub(1);
                     if self.selected_artist < max {
                         self.selected_artist += 1;
                         self.selected_album = 0;
@@ -245,8 +336,4 @@ impl App {
         }
     }
 
-    /// Convenience: returns artist nodes slice.
-    pub fn artists(&self) -> &[ArtistNode] {
-        &self.tree.artists
-    }
 }
