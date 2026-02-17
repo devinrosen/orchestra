@@ -1,10 +1,10 @@
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
-use crate::error::AppError;
-use crate::models::diff::{DiffAction, DiffDirection, DiffEntry, DiffResult};
-use crate::models::track::is_audio_file;
-use crate::scanner::hasher;
+use orchestra_core::error::AppError;
+use orchestra_core::models::diff::{DiffAction, DiffDirection, DiffEntry, DiffResult};
+use orchestra_core::models::track::is_audio_file;
+use orchestra_core::scanner::hasher;
 
 struct FileInfo {
     size: u64,

@@ -1,8 +1,8 @@
 use std::path::Path;
 use std::process::Command;
 
-use crate::error::AppError;
-use crate::models::device::DetectedVolume;
+use orchestra_core::error::AppError;
+use orchestra_core::models::device::DetectedVolume;
 
 pub fn detect_usb_volumes() -> Result<Vec<DetectedVolume>, AppError> {
     let volumes_dir = Path::new("/Volumes");

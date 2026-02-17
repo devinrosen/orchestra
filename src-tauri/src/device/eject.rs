@@ -1,5 +1,5 @@
 use std::process::Command;
-use crate::error::AppError;
+use orchestra_core::error::AppError;
 
 /// Eject a volume by its mount path using macOS `diskutil`.
 /// Uses `diskutil eject` which cleanly unmounts and powers down the drive.

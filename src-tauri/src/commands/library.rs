@@ -5,12 +5,12 @@ use rusqlite::Connection;
 use tauri::ipc::Channel;
 use walkdir::WalkDir;
 
-use crate::db::library_repo;
-use crate::error::AppError;
-use crate::models::duplicate::DuplicateResult;
-use crate::models::progress::ProgressEvent;
-use crate::models::track::{is_audio_file, LibraryStats, LibraryTree, Track};
-use crate::scanner::{hasher, metadata, walker};
+use orchestra_core::db::library_repo;
+use orchestra_core::error::AppError;
+use orchestra_core::models::duplicate::DuplicateResult;
+use orchestra_core::models::progress::ProgressEvent;
+use orchestra_core::models::track::{is_audio_file, LibraryStats, LibraryTree, Track};
+use orchestra_core::scanner::{hasher, metadata, walker};
 
 #[tauri::command]
 pub async fn scan_directory(
@@ -516,7 +516,7 @@ pub async fn import_tracks(
 #[cfg(test)]
 mod hash_progress_tests {
     use super::*;
-    use crate::db::schema;
+    use orchestra_core::db::schema;
     use rusqlite::Connection;
     use std::sync::Mutex;
     use tempfile::TempDir;
@@ -598,7 +598,7 @@ mod hash_progress_tests {
 #[cfg(test)]
 mod import_tracks_tests {
     use super::*;
-    use crate::db::schema;
+    use orchestra_core::db::schema;
     use rusqlite::Connection;
     use std::sync::Mutex;
     use tempfile::TempDir;

@@ -3,12 +3,12 @@ use std::sync::Mutex;
 use rusqlite::Connection;
 use tauri::ipc::Channel;
 
-use crate::db::{device_repo, library_repo};
+use orchestra_core::db::{device_repo, library_repo};
 use crate::device::{detect, sync as device_sync};
-use crate::error::AppError;
-use crate::models::device::{AlbumSelection, AlbumSummary, ArtistSummary, DetectedVolume, DeviceWithStatus, RegisterDeviceRequest};
-use crate::models::diff::DiffResult;
-use crate::models::progress::ProgressEvent;
+use orchestra_core::error::AppError;
+use orchestra_core::models::device::{AlbumSelection, AlbumSummary, ArtistSummary, DetectedVolume, DeviceWithStatus, RegisterDeviceRequest};
+use orchestra_core::models::diff::DiffResult;
+use orchestra_core::models::progress::ProgressEvent;
 use crate::sync::progress::CancelToken;
 
 #[tauri::command]
@@ -50,7 +50,7 @@ pub async fn register_device(
         device_repo::save_device(&conn, &existing)?;
         existing
     } else {
-        let device = crate::models::device::Device {
+        let device = orchestra_core::models::device::Device {
             id: uuid::Uuid::new_v4().to_string(),
             name: request.name,
             volume_uuid: request.volume_uuid,
