@@ -50,6 +50,10 @@ Statuses: `[ ]` not started · `[designed]` plan exists · `[implemented]` code 
 - [ ] **Audio format conversion** — Convert existing library tracks between formats (e.g. FLAC to MP3/AAC) with configurable quality settings, preserving metadata tags and album art.
 - [ ] **ReplayGain tagging** — Calculate and write ReplayGain tags (track and album gain) for volume normalization across the library.
 
+## Terminal UI (orchestra-tui)
+
+- [ ] **Artist filter** — Type `/` to enter filter mode, then type a text string to filter the artist list in real time. Press `Escape` to clear the filter and return to the full list. Press `Enter` to lock the filter and navigate the results.
+
 ## Sync Profiles
 
 _(No open requests)_
