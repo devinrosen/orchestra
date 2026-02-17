@@ -32,6 +32,11 @@ A desktop application for synchronizing music libraries between drives — NAS, 
 - **Eject Device** — Safely unmount a connected device directly from the app
 - **Exclude Patterns** — Glob-based filtering to skip files (e.g., `*.tmp`, `.DS_Store`)
 
+### Terminal UI (orchestra-tui)
+- **Library Browsing** — 3-pane artist/album/track browser reading from the existing Orchestra database (read-only)
+- **Audio Playback** — Play tracks via rodio with play/pause, next/previous, and volume controls
+- **Vim-Style Navigation** — `j`/`k` or arrow keys to navigate, `Tab`/`Shift+Tab` to cycle panes, `Enter` to select/play, `Space` to toggle pause, `n`/`p` for next/prev, `+`/`-` for volume, `q` to quit
+
 ### UI
 - **Light / Dark Mode** — Light and dark themes with system appearance detection and manual override
 - **Global Status Bar** — Expandable progress bar showing current file, files completed/total, bytes transferred, and elapsed time
@@ -58,6 +63,20 @@ npm run tauri dev
 # Build for production
 npm run tauri build
 ```
+
+## Terminal UI
+
+Orchestra includes a standalone terminal UI for browsing and playing your library without the desktop app running. It reads the same SQLite database (read-only) — you must scan a library in the desktop app first.
+
+```bash
+# Build and run from src-tauri/
+cargo run -p orchestra-tui
+
+# Or specify a custom database path
+cargo run -p orchestra-tui -- --db /path/to/orchestra.db
+```
+
+The default database location is `~/Library/Application Support/com.orchestra.app/orchestra.db` on macOS.
 
 ## Running Tests
 
@@ -88,6 +107,7 @@ After each successful sync, the app snapshots the state (content hash, modificat
 - **Backend**: Rust with Tauri v2, rusqlite (bundled SQLite), lofty (metadata), blake3 (hashing), walkdir
 - **Frontend**: Svelte 5, TypeScript, Vite
 - **IPC**: Tauri commands with Channel-based progress streaming
+- **TUI**: Ratatui, crossterm, rodio (audio playback via symphonia)
 
 ## License
 
