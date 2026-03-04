@@ -52,11 +52,19 @@ impl PlayerHandle {
                             }
                         };
 
-                        let decoder = match Decoder::new(BufReader::new(file)) {
-                            Ok(d) => d,
-                            Err(e) => {
+                        let decode_result = std::panic::catch_unwind(|| {
+                            Decoder::new(BufReader::new(file))
+                        });
+                        let decoder = match decode_result {
+                            Ok(Ok(d)) => d,
+                            Ok(Err(e)) => {
                                 let _ = err_tx
                                     .send(format!("Cannot decode \"{path}\": {e}"));
+                                continue;
+                            }
+                            Err(_) => {
+                                let _ = err_tx
+                                    .send(format!("Cannot decode \"{path}\": unsupported format"));
                                 continue;
                             }
                         };

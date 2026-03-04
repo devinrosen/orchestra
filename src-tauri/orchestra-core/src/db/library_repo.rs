@@ -326,7 +326,7 @@ pub fn get_tracks_for_device(
     }
 
     let sql = format!(
-        "{} ORDER BY COALESCE(album_artist, artist) COLLATE NOCASE, album COLLATE NOCASE, disc_number, track_number",
+        "SELECT * FROM ({}) ORDER BY COALESCE(album_artist, artist) COLLATE NOCASE, album COLLATE NOCASE, disc_number, track_number",
         query_parts.join(" UNION ")
     );
 
