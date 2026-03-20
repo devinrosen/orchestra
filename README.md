@@ -47,7 +47,7 @@ FLAC, MP3, AAC/M4A, WAV, ALAC, OGG, OPUS, WMA
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) >= 18
+- [Bun](https://bun.sh/) >= 1.0
 - [Rust](https://rustup.rs/) >= 1.70
 - Platform-specific Tauri v2 dependencies — see [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)
 
@@ -55,13 +55,13 @@ FLAC, MP3, AAC/M4A, WAV, ALAC, OGG, OPUS, WMA
 
 ```bash
 # Install dependencies
-npm install
+bun install
 
 # Run in development mode (frontend HMR + Rust backend)
-npm run tauri dev
+bun run tauri dev
 
 # Build for production
-npm run tauri build
+bun run tauri build
 ```
 
 ## Terminal UI

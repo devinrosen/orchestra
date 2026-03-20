@@ -6,12 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```bash
 # Full development mode (frontend HMR + Rust backend)
-npm run tauri dev
+bun run tauri dev
 
 # Frontend only
-npm run dev          # Vite dev server on localhost:1420
-npm run build        # Production build to dist/
-npm run check        # Svelte + TypeScript type checking
+bun run dev          # Vite dev server on localhost:1420
+bun run build        # Production build to dist/
+bun run check        # Svelte + TypeScript type checking
 
 # Rust backend (from src-tauri/)
 cargo build          # Debug build

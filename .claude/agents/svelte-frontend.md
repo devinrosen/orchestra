@@ -42,13 +42,13 @@ Follow these strictly:
 3. Implement the changes following the plan
 4. If new types are needed, update `src/lib/api/types.ts`
 5. If new commands are needed, add wrappers in `commands.ts` and mocks in `e2e/tauri-mocks.ts`
-6. Run `npm run check` and fix any type errors
+6. Run `bun run check` and fix any type errors
 7. Report completion status back to the lead agent
 
 ## Quality Checks
 
 Before reporting done:
-- `npm run check` passes (Svelte + TypeScript type checking)
+- `bun run check` passes (Svelte + TypeScript type checking)
 - No hardcoded colors in any `.svelte` `<style>` block
 - All new `invoke()` commands have mocks in `e2e/tauri-mocks.ts`
 - Svelte 5 runes used throughout (no legacy reactive patterns)

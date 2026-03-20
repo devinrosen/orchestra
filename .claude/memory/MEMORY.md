@@ -25,5 +25,5 @@
 
 ## Test Commands
 - `cargo test` from `src-tauri/` - 13 unit tests for diff/sync logic
-- `npm run build` - Vite frontend build
-- `npm run tauri dev` - Full dev mode
+- `bun run build` - Vite frontend build
+- `bun run tauri dev` - Full dev mode
