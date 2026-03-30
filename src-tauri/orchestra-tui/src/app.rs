@@ -1,9 +1,10 @@
 use std::time::Duration;
 
 use crossterm::event::KeyCode;
+use orchestra_core::cover;
 use orchestra_core::models::track::{AlbumNode, ArtistNode, LibraryTree, Track};
 
-use crate::media_session::{self, MediaSessionHandle};
+use crate::media_session::MediaSessionHandle;
 use crate::player::PlayerHandle;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -198,7 +199,7 @@ impl App {
 
             // Update Now Playing metadata
             if let Some(ref session) = self.media_session {
-                let cover_url = media_session::extract_cover(&track.file_path);
+                let cover_url = cover::extract_cover(&track.file_path, "orchestra-tui-art.jpg");
                 session.update_metadata(
                     Some(title),
                     Some(artist),

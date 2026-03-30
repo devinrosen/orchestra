@@ -2,8 +2,6 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
-use lofty::picture::PictureType;
-use lofty::prelude::*;
 use souvlaki::{
     MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig,
 };
@@ -147,24 +145,3 @@ impl MediaSessionHandle {
     }
 }
 
-/// Extract embedded album art from `file_path` and write it to
-/// `$TMPDIR/orchestra-tui-art.jpg`. Returns a `file://` URI on success.
-pub fn extract_cover(file_path: &str) -> Option<String> {
-    let path = std::path::Path::new(file_path);
-    let tagged_file = lofty::read_from_path(path).ok()?;
-
-    let tag = tagged_file
-        .primary_tag()
-        .or_else(|| tagged_file.first_tag())?;
-
-    let picture = tag
-        .pictures()
-        .iter()
-        .find(|p| p.pic_type() == PictureType::CoverFront)
-        .or_else(|| tag.pictures().first())?;
-
-    let temp_path = std::env::temp_dir().join("orchestra-tui-art.jpg");
-    std::fs::write(&temp_path, picture.data()).ok()?;
-
-    Some(format!("file://{}", temp_path.display()))
-}

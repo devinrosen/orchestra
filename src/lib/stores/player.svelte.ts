@@ -28,6 +28,7 @@ class PlayerStore {
   private analyser: AnalyserNode | null = null;
   private sourceNode: MediaElementAudioSourceNode | null = null;
   private lastPositionUpdateTime = 0;
+  private mediaRemoteUnlisten: (() => void) | null = null;
 
   getAnalyser(): AnalyserNode | null {
     return this.analyser;
@@ -93,16 +94,31 @@ class PlayerStore {
       updatePlaybackState({ playing: false, positionSecs: el.currentTime }).catch(() => {});
     });
 
-    // Register Tauri remote command listener (skipped in Playwright / non-Tauri context)
+    // Register Tauri remote command listener (skipped in Playwright / non-Tauri context).
+    // Call the previous unlisten handle first to prevent duplicate listeners if
+    // bindAudio is called more than once (e.g., on component remount).
     if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {
+      if (this.mediaRemoteUnlisten) {
+        this.mediaRemoteUnlisten();
+        this.mediaRemoteUnlisten = null;
+      }
       listen<Record<string, unknown>>("media-remote", (event) => {
         const e = event.payload;
         if (e.type === "Play") this.audio?.play().catch(() => {});
         else if (e.type === "Pause") this.audio?.pause();
-        else if (e.type === "Next") this.next();
+        else if (e.type === "Toggle") {
+          if (this.audio?.paused) this.audio?.play().catch(() => {});
+          else this.audio?.pause();
+        } else if (e.type === "Next") this.next();
         else if (e.type === "Previous") this.previous();
         else if (e.type === "Seek") this.seek(e.position as number);
-      }).catch(() => {});
+      })
+        .then((unlisten) => {
+          this.mediaRemoteUnlisten = unlisten;
+        })
+        .catch((err) => {
+          console.error("[PlayerStore] Failed to register media-remote listener:", err);
+        });
     }
 
     el.addEventListener("error", () => {
