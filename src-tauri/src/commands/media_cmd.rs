@@ -19,23 +19,18 @@ pub async fn update_now_playing(
 ) -> Result<(), AppError> {
     // Validate file_path against the library root to prevent path traversal.
     let library_root: Option<String> = {
-        let conn = db.lock().map_err(|e| {
-            AppError::General(format!(
-                "update_now_playing: db lock poisoned: {e}"
-            ))
-        })?;
-        let mut stmt =
-            conn.prepare("SELECT value FROM settings WHERE key = 'library_root'")?;
+        let conn = db
+            .lock()
+            .map_err(|e| AppError::General(format!("update_now_playing: db lock poisoned: {e}")))?;
+        let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = 'library_root'")?;
         stmt.query_row(params![], |row| row.get(0)).ok()
     };
 
     if let Some(root) = library_root {
-        let root_canonical = std::fs::canonicalize(&root)
-            .unwrap_or_else(|_| std::path::PathBuf::from(&root));
+        let root_canonical =
+            std::fs::canonicalize(&root).unwrap_or_else(|_| std::path::PathBuf::from(&root));
         let file_canonical = std::fs::canonicalize(&file_path).map_err(|_| {
-            AppError::General(
-                "update_now_playing: invalid or inaccessible file path".to_string(),
-            )
+            AppError::General("update_now_playing: invalid or inaccessible file path".to_string())
         })?;
         if !file_canonical.starts_with(&root_canonical) {
             return Err(AppError::General(

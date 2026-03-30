@@ -144,4 +144,3 @@ impl MediaSessionHandle {
             .try_send(MediaCmd::UpdatePlayback { playing, position });
     }
 }
-
