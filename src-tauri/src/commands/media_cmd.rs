@@ -44,7 +44,10 @@ pub async fn update_now_playing(
         cover::extract_cover(&file_path_clone, "orchestra-art.jpg")
     })
     .await
-    .unwrap_or(None);
+    .unwrap_or_else(|e| {
+        eprintln!("cover extraction task failed: {e}");
+        None
+    });
 
     let s = session.lock().map_err(|e| {
         AppError::General(format!(
