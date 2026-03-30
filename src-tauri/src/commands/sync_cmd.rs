@@ -205,3 +205,71 @@ fn build_post_sync_baselines(
 
     Ok(baselines)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    fn write_fake_audio(dir: &TempDir, rel: &str, content: &[u8]) {
+        let path = dir.path().join(rel);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).unwrap();
+        }
+        fs::write(&path, content).unwrap();
+    }
+
+    #[test]
+    fn test_build_post_sync_baselines_with_matching_files() {
+        let src = TempDir::new().unwrap();
+        let tgt = TempDir::new().unwrap();
+
+        write_fake_audio(&src, "artist/album/track01.flac", b"source audio data 1");
+        write_fake_audio(&src, "artist/album/track02.flac", b"source audio data 2");
+        write_fake_audio(&tgt, "artist/album/track01.flac", b"source audio data 1");
+
+        let baselines = build_post_sync_baselines(src.path(), tgt.path(), &[]).unwrap();
+
+        assert_eq!(baselines.len(), 2);
+
+        let b1 = baselines
+            .iter()
+            .find(|b| b.relative_path == "artist/album/track01.flac")
+            .expect("track01 baseline missing");
+        assert!(b1.source_hash.is_some());
+        assert!(b1.target_hash.is_some());
+        assert_eq!(b1.source_hash, b1.target_hash, "same content => same hash");
+
+        let b2 = baselines
+            .iter()
+            .find(|b| b.relative_path == "artist/album/track02.flac")
+            .expect("track02 baseline missing");
+        assert!(b2.source_hash.is_some());
+        assert!(b2.target_hash.is_none(), "track02 only in source");
+    }
+
+    #[test]
+    fn test_build_post_sync_baselines_empty_dirs() {
+        let src = TempDir::new().unwrap();
+        let tgt = TempDir::new().unwrap();
+
+        let baselines = build_post_sync_baselines(src.path(), tgt.path(), &[]).unwrap();
+        assert!(baselines.is_empty());
+    }
+
+    #[test]
+    fn test_build_post_sync_baselines_respects_exclude_patterns() {
+        let src = TempDir::new().unwrap();
+        let tgt = TempDir::new().unwrap();
+
+        write_fake_audio(&src, "keep/track.flac", b"keep me");
+        write_fake_audio(&src, "skip/track.flac", b"exclude me");
+
+        let baselines =
+            build_post_sync_baselines(src.path(), tgt.path(), &["skip/**".to_string()]).unwrap();
+
+        assert_eq!(baselines.len(), 1);
+        assert_eq!(baselines[0].relative_path, "keep/track.flac");
+    }
+}

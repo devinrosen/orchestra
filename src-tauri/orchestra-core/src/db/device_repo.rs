@@ -258,3 +258,117 @@ pub fn set_selected_albums(
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::schema;
+    use crate::models::device::Device;
+
+    fn setup_db() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::run_migrations(&conn).unwrap();
+        conn
+    }
+
+    fn make_device(id: &str, uuid: &str) -> Device {
+        Device {
+            id: id.to_string(),
+            name: format!("Device {}", id),
+            volume_uuid: uuid.to_string(),
+            volume_name: format!("Volume {}", id),
+            mount_path: Some(format!("/Volumes/{}", id)),
+            capacity_bytes: Some(128_000_000_000),
+            music_folder: "Music".to_string(),
+            created_at: 1700000000,
+            last_synced_at: None,
+        }
+    }
+
+    #[test]
+    fn test_save_and_get_device() {
+        let conn = setup_db();
+        let device = make_device("d1", "uuid-1");
+        save_device(&conn, &device).unwrap();
+
+        let fetched = get_device(&conn, "d1").unwrap();
+        assert_eq!(fetched.id, "d1");
+        assert_eq!(fetched.name, "Device d1");
+        assert_eq!(fetched.volume_uuid, "uuid-1");
+        assert_eq!(fetched.mount_path, Some("/Volumes/d1".to_string()));
+        assert_eq!(fetched.capacity_bytes, Some(128_000_000_000));
+    }
+
+    #[test]
+    fn test_save_device_upsert_on_conflict() {
+        let conn = setup_db();
+        let device = make_device("d1", "uuid-1");
+        save_device(&conn, &device).unwrap();
+
+        let updated = Device {
+            id: "d1".to_string(),
+            name: "Updated Device".to_string(),
+            volume_uuid: "uuid-1".to_string(),
+            volume_name: "Same Volume".to_string(),
+            mount_path: Some("/Volumes/updated".to_string()),
+            capacity_bytes: Some(256_000_000_000),
+            music_folder: "Music".to_string(),
+            created_at: 1700000000,
+            last_synced_at: None,
+        };
+        save_device(&conn, &updated).unwrap();
+
+        let fetched = get_device(&conn, "d1").unwrap();
+        assert_eq!(fetched.name, "Updated Device");
+        assert_eq!(fetched.mount_path, Some("/Volumes/updated".to_string()));
+        assert_eq!(fetched.capacity_bytes, Some(256_000_000_000));
+    }
+
+    #[test]
+    fn test_get_device_by_uuid_missing() {
+        let conn = setup_db();
+        let result = get_device_by_uuid(&conn, "nonexistent-uuid").unwrap();
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_list_devices() {
+        let conn = setup_db();
+        save_device(&conn, &make_device("d1", "uuid-1")).unwrap();
+        save_device(&conn, &make_device("d2", "uuid-2")).unwrap();
+        save_device(&conn, &make_device("d3", "uuid-3")).unwrap();
+
+        let devices = list_devices(&conn).unwrap();
+        assert_eq!(devices.len(), 3);
+    }
+
+    #[test]
+    fn test_delete_device() {
+        let conn = setup_db();
+        save_device(&conn, &make_device("d1", "uuid-1")).unwrap();
+        delete_device(&conn, "d1").unwrap();
+
+        let result = get_device(&conn, "d1");
+        assert!(matches!(result, Err(AppError::DeviceNotFound(_))));
+    }
+
+    #[test]
+    fn test_capacity_bytes_u64_roundtrip() {
+        let conn = setup_db();
+        let device = Device {
+            id: "d1".to_string(),
+            name: "Big Device".to_string(),
+            volume_uuid: "uuid-big".to_string(),
+            volume_name: "Big Volume".to_string(),
+            mount_path: None,
+            capacity_bytes: Some(500_000_000_000u64),
+            music_folder: "Music".to_string(),
+            created_at: 1700000000,
+            last_synced_at: None,
+        };
+        save_device(&conn, &device).unwrap();
+
+        let fetched = get_device(&conn, "d1").unwrap();
+        assert_eq!(fetched.capacity_bytes, Some(500_000_000_000u64));
+    }
+}

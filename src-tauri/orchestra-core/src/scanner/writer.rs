@@ -111,3 +111,38 @@ pub fn extract_artwork(path: &Path) -> Result<Option<AlbumArt>, AppError> {
         None => Ok(None),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::track::TrackMetadataUpdate;
+    use std::path::PathBuf;
+
+    fn no_op_update() -> TrackMetadataUpdate {
+        TrackMetadataUpdate {
+            file_path: String::new(),
+            title: None,
+            artist: None,
+            album_artist: None,
+            album: None,
+            track_number: None,
+            disc_number: None,
+            year: None,
+            genre: None,
+        }
+    }
+
+    #[test]
+    fn test_write_nonexistent_file_returns_error() {
+        let path = PathBuf::from("/nonexistent/path/track.flac");
+        let result = write_metadata(&path, &no_op_update());
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_extract_artwork_nonexistent_file_returns_error() {
+        let path = PathBuf::from("/nonexistent/path/track.flac");
+        let result = extract_artwork(&path);
+        assert!(result.is_err());
+    }
+}

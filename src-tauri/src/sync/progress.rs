@@ -21,3 +21,34 @@ impl CancelToken {
         self.flag.clone()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::atomic::Ordering;
+
+    #[test]
+    fn test_cancel_token_starts_not_cancelled() {
+        let token = CancelToken::new();
+        assert!(!token.flag().load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn test_cancel_token_cancel_sets_flag() {
+        let token = CancelToken::new();
+        token.cancel();
+        assert!(token.flag().load(Ordering::Relaxed));
+    }
+
+    #[test]
+    fn test_cancel_token_flag_shared_across_arc_clones() {
+        let token = CancelToken::new();
+        let flag1 = token.flag();
+        let flag2 = token.flag();
+
+        token.cancel();
+
+        assert!(flag1.load(Ordering::Relaxed));
+        assert!(flag2.load(Ordering::Relaxed));
+    }
+}

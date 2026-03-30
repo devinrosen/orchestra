@@ -131,3 +131,146 @@ pub fn update_last_synced(conn: &Connection, id: &str, timestamp: i64) -> Result
     )?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::schema;
+    use crate::models::sync_profile::{SyncMode, SyncProfile};
+
+    fn setup_db() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::run_migrations(&conn).unwrap();
+        conn
+    }
+
+    fn make_profile(id: &str) -> SyncProfile {
+        SyncProfile {
+            id: id.to_string(),
+            name: format!("Profile {}", id),
+            source_path: "/source".to_string(),
+            target_path: "/target".to_string(),
+            sync_mode: SyncMode::OneWay,
+            exclude_patterns: vec![],
+            created_at: 1700000000,
+            last_synced_at: None,
+        }
+    }
+
+    #[test]
+    fn test_create_and_get_profile() {
+        let conn = setup_db();
+        let profile = make_profile("p1");
+        create_profile(&conn, &profile).unwrap();
+
+        let fetched = get_profile(&conn, "p1").unwrap();
+        assert_eq!(fetched.id, "p1");
+        assert_eq!(fetched.name, "Profile p1");
+        assert_eq!(fetched.source_path, "/source");
+        assert_eq!(fetched.target_path, "/target");
+        assert_eq!(fetched.created_at, 1700000000);
+        assert_eq!(fetched.last_synced_at, None);
+    }
+
+    #[test]
+    fn test_list_profiles() {
+        let conn = setup_db();
+        create_profile(&conn, &make_profile("p1")).unwrap();
+        create_profile(&conn, &make_profile("p2")).unwrap();
+        create_profile(&conn, &make_profile("p3")).unwrap();
+
+        let profiles = list_profiles(&conn).unwrap();
+        assert_eq!(profiles.len(), 3);
+    }
+
+    #[test]
+    fn test_update_profile() {
+        let conn = setup_db();
+        let mut profile = make_profile("p1");
+        create_profile(&conn, &profile).unwrap();
+
+        profile.name = "Updated Name".to_string();
+        profile.source_path = "/new_source".to_string();
+        profile.target_path = "/new_target".to_string();
+        profile.sync_mode = SyncMode::TwoWay;
+        profile.exclude_patterns = vec!["*.tmp".to_string()];
+        update_profile(&conn, &profile).unwrap();
+
+        let fetched = get_profile(&conn, "p1").unwrap();
+        assert_eq!(fetched.name, "Updated Name");
+        assert_eq!(fetched.source_path, "/new_source");
+        assert_eq!(fetched.target_path, "/new_target");
+        assert!(matches!(fetched.sync_mode, SyncMode::TwoWay));
+        assert_eq!(fetched.exclude_patterns, vec!["*.tmp"]);
+    }
+
+    #[test]
+    fn test_delete_profile() {
+        let conn = setup_db();
+        create_profile(&conn, &make_profile("p1")).unwrap();
+        delete_profile(&conn, "p1").unwrap();
+
+        let result = get_profile(&conn, "p1");
+        assert!(matches!(result, Err(AppError::ProfileNotFound(_))));
+    }
+
+    #[test]
+    fn test_delete_nonexistent_returns_error() {
+        let conn = setup_db();
+        let result = delete_profile(&conn, "nonexistent");
+        assert!(matches!(result, Err(AppError::ProfileNotFound(_))));
+    }
+
+    #[test]
+    fn test_update_last_synced() {
+        let conn = setup_db();
+        create_profile(&conn, &make_profile("p1")).unwrap();
+
+        update_last_synced(&conn, "p1", 1750000000).unwrap();
+
+        let fetched = get_profile(&conn, "p1").unwrap();
+        assert_eq!(fetched.last_synced_at, Some(1750000000));
+    }
+
+    #[test]
+    fn test_profile_sync_mode_roundtrip() {
+        let conn = setup_db();
+
+        let mut p1 = make_profile("p1");
+        p1.sync_mode = SyncMode::OneWay;
+        create_profile(&conn, &p1).unwrap();
+        let fetched1 = get_profile(&conn, "p1").unwrap();
+        assert!(matches!(fetched1.sync_mode, SyncMode::OneWay));
+
+        let mut p2 = make_profile("p2");
+        p2.sync_mode = SyncMode::TwoWay;
+        create_profile(&conn, &p2).unwrap();
+        let fetched2 = get_profile(&conn, "p2").unwrap();
+        assert!(matches!(fetched2.sync_mode, SyncMode::TwoWay));
+    }
+
+    #[test]
+    fn test_profile_exclude_patterns_roundtrip() {
+        let conn = setup_db();
+        let mut profile = make_profile("p1");
+        profile.exclude_patterns = vec![
+            "*.tmp".to_string(),
+            "backup/**".to_string(),
+            ".DS_Store".to_string(),
+        ];
+        create_profile(&conn, &profile).unwrap();
+
+        let fetched = get_profile(&conn, "p1").unwrap();
+        assert_eq!(
+            fetched.exclude_patterns,
+            vec!["*.tmp", "backup/**", ".DS_Store"]
+        );
+    }
+
+    #[test]
+    fn test_get_nonexistent_profile_returns_error() {
+        let conn = setup_db();
+        let result = get_profile(&conn, "nonexistent");
+        assert!(matches!(result, Err(AppError::ProfileNotFound(_))));
+    }
+}
