@@ -1,5 +1,5 @@
-use std::sync::Mutex;
 use rusqlite::Connection;
+use std::sync::Mutex;
 
 use orchestra_core::db::playlist_repo;
 use orchestra_core::error::AppError;

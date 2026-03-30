@@ -19,11 +19,11 @@ pub fn render(f: &mut Frame, area: Rect, tracks: &[Track], selected: usize, focu
         .iter()
         .enumerate()
         .map(|(i, t)| {
-            let title = t
-                .title
-                .as_deref()
-                .unwrap_or("Unknown Title");
-            let num = t.track_number.map(|n| format!("{n}. ")).unwrap_or_else(|| format!("{}. ", i + 1));
+            let title = t.title.as_deref().unwrap_or("Unknown Title");
+            let num = t
+                .track_number
+                .map(|n| format!("{n}. "))
+                .unwrap_or_else(|| format!("{}. ", i + 1));
             ListItem::new(format!("{num}{title}"))
         })
         .collect();

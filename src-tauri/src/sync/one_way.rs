@@ -17,14 +17,16 @@ pub fn execute_one_way_sync(
     let actionable: Vec<_> = diff
         .entries
         .iter()
-        .filter(|e| matches!(e.action, DiffAction::Add | DiffAction::Update | DiffAction::Remove))
+        .filter(|e| {
+            matches!(
+                e.action,
+                DiffAction::Add | DiffAction::Update | DiffAction::Remove
+            )
+        })
         .collect();
 
     let total_files = actionable.len();
-    let total_bytes: u64 = actionable
-        .iter()
-        .map(|e| e.source_size.unwrap_or(0))
-        .sum();
+    let total_bytes: u64 = actionable.iter().map(|e| e.source_size.unwrap_or(0)).sum();
 
     let _ = channel.send(ProgressEvent::SyncStarted {
         total_files,
@@ -125,12 +127,10 @@ fn remove_file_safe(path: &Path) -> Result<(), AppError> {
 }
 
 pub fn remove_empty_parents(dir: &Path) -> Result<(), std::io::Error> {
-    if dir.is_dir() {
-        if std::fs::read_dir(dir)?.next().is_none() {
-            std::fs::remove_dir(dir)?;
-            if let Some(parent) = dir.parent() {
-                let _ = remove_empty_parents(parent);
-            }
+    if dir.is_dir() && std::fs::read_dir(dir)?.next().is_none() {
+        std::fs::remove_dir(dir)?;
+        if let Some(parent) = dir.parent() {
+            let _ = remove_empty_parents(parent);
         }
     }
     Ok(())

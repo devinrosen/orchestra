@@ -5,13 +5,13 @@ use std::sync::Arc;
 use tauri::ipc::Channel;
 use unicode_normalization::UnicodeNormalization;
 
+use crate::sync::one_way::{copy_file_safe, remove_empty_parents};
 use orchestra_core::db::device_repo::CachedFileHash;
 use orchestra_core::error::AppError;
 use orchestra_core::models::diff::{DiffAction, DiffDirection, DiffEntry, DiffResult};
 use orchestra_core::models::progress::ProgressEvent;
 use orchestra_core::models::track::{is_audio_file, Track};
 use orchestra_core::scanner::hasher;
-use crate::sync::one_way::{copy_file_safe, remove_empty_parents};
 
 struct FileInfo {
     size: u64,
@@ -51,7 +51,10 @@ fn collect_device_files(
             Ok(e) => e,
             Err(_) => continue, // skip permission errors and other walk failures
         };
-        if !entry.file_type().is_file() || !is_audio_file(entry.path()) || is_hidden(entry.file_name()) {
+        if !entry.file_type().is_file()
+            || !is_audio_file(entry.path())
+            || is_hidden(entry.file_name())
+        {
             continue;
         }
         let rel = entry
@@ -71,7 +74,14 @@ fn collect_device_files(
             .map(|d| d.as_secs() as i64)
             .unwrap_or(0);
         let norm_key = normalize_path(&rel);
-        files.insert(norm_key, FileInfo { size: meta.len(), modified, original_path: rel.clone() });
+        files.insert(
+            norm_key,
+            FileInfo {
+                size: meta.len(),
+                modified,
+                original_path: rel.clone(),
+            },
+        );
 
         let _ = channel.send(ProgressEvent::DeviceScanProgress {
             files_found: files.len(),
@@ -111,12 +121,9 @@ pub fn compute_device_diff(
     let mut total_update = 0usize;
     let mut total_unchanged = 0usize;
     let mut bytes_to_transfer = 0u64;
-    let mut files_compared = 0usize;
     let mut new_cache: Vec<CachedFileHash> = Vec::new();
 
-    for norm_key in &all_keys {
-        files_compared += 1;
-
+    for (files_compared, norm_key) in all_keys.iter().enumerate() {
         let in_library = library_map.get(norm_key);
         let in_device = device_files.get(norm_key);
 
@@ -130,7 +137,7 @@ pub fn compute_device_diff(
             });
 
         let _ = channel.send(ProgressEvent::DiffProgress {
-            files_compared,
+            files_compared: files_compared + 1,
             total_files: total_to_compare,
             current_file: rel.clone(),
         });
@@ -282,14 +289,16 @@ pub fn execute_device_sync(
     let actionable: Vec<_> = diff
         .entries
         .iter()
-        .filter(|e| matches!(e.action, DiffAction::Add | DiffAction::Update | DiffAction::Remove))
+        .filter(|e| {
+            matches!(
+                e.action,
+                DiffAction::Add | DiffAction::Update | DiffAction::Remove
+            )
+        })
         .collect();
 
     let total_files = actionable.len();
-    let total_bytes: u64 = actionable
-        .iter()
-        .map(|e| e.source_size.unwrap_or(0))
-        .sum();
+    let total_bytes: u64 = actionable.iter().map(|e| e.source_size.unwrap_or(0)).sum();
 
     let _ = channel.send(ProgressEvent::SyncStarted {
         total_files,
@@ -329,13 +338,20 @@ pub fn execute_device_sync(
                     // Update cache with the file we just wrote
                     let hash = entry.source_hash.clone().unwrap_or_default();
                     let meta = std::fs::metadata(&tgt_path).ok();
-                    let (size, mtime) = meta.map(|m| {
-                        let mtime = m.modified().ok()
-                            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                            .map(|d| d.as_secs() as i64)
-                            .unwrap_or(0);
-                        (m.len(), mtime)
-                    }).unwrap_or((entry.source_size.unwrap_or(0), entry.source_modified.unwrap_or(0)));
+                    let (size, mtime) = meta
+                        .map(|m| {
+                            let mtime = m
+                                .modified()
+                                .ok()
+                                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                                .map(|d| d.as_secs() as i64)
+                                .unwrap_or(0);
+                            (m.len(), mtime)
+                        })
+                        .unwrap_or((
+                            entry.source_size.unwrap_or(0),
+                            entry.source_modified.unwrap_or(0),
+                        ));
 
                     // Remove old entry if exists, then add new one
                     pre_cache.retain(|c| c.relative_path != entry.relative_path);

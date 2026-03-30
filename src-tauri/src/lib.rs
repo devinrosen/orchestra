@@ -3,8 +3,8 @@ mod device;
 mod media_session;
 mod sync;
 
-use std::sync::Mutex;
 use rusqlite::Connection;
+use std::sync::Mutex;
 use tauri::Manager;
 
 use orchestra_core::db::schema;

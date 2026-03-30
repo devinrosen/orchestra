@@ -14,7 +14,9 @@ pub async fn update_now_playing(
     file_path: String,
 ) -> Result<(), AppError> {
     let cover_url = media_session::extract_cover(&file_path);
-    let s = session.lock().map_err(|e| AppError::General(e.to_string()))?;
+    let s = session
+        .lock()
+        .map_err(|e| AppError::General(e.to_string()))?;
     s.update_metadata(title, artist, album, duration_secs, cover_url);
     Ok(())
 }
@@ -25,7 +27,9 @@ pub async fn update_playback_state(
     playing: bool,
     position_secs: f64,
 ) -> Result<(), AppError> {
-    let s = session.lock().map_err(|e| AppError::General(e.to_string()))?;
+    let s = session
+        .lock()
+        .map_err(|e| AppError::General(e.to_string()))?;
     s.update_playback(playing, position_secs);
     Ok(())
 }

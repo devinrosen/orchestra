@@ -56,10 +56,7 @@ pub enum ProgressEvent {
         duration_ms: u64,
     },
     #[serde(rename = "sync_error")]
-    SyncError {
-        file: String,
-        error: String,
-    },
+    SyncError { file: String, error: String },
     #[serde(rename = "hash_started")]
     HashStarted { total: usize },
     #[serde(rename = "hash_progress")]

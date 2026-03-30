@@ -12,7 +12,10 @@ struct FileInfo {
     hash: Option<String>,
 }
 
-fn collect_files(root: &Path, exclude_patterns: &[String]) -> Result<HashMap<String, FileInfo>, AppError> {
+fn collect_files(
+    root: &Path,
+    exclude_patterns: &[String],
+) -> Result<HashMap<String, FileInfo>, AppError> {
     let compiled: Vec<glob::Pattern> = exclude_patterns
         .iter()
         .filter_map(|p| glob::Pattern::new(p).ok())
@@ -204,10 +207,13 @@ mod tests {
     #[test]
     fn test_one_way_add() {
         let (source, target) = setup_test_dirs();
-        write_fake_audio(source.path(), "artist/album/track.flac", b"source audio data");
+        write_fake_audio(
+            source.path(),
+            "artist/album/track.flac",
+            b"source audio data",
+        );
 
-        let result =
-            compute_one_way_diff("test", source.path(), target.path(), &[]).unwrap();
+        let result = compute_one_way_diff("test", source.path(), target.path(), &[]).unwrap();
 
         assert_eq!(result.total_add, 1);
         assert_eq!(result.total_remove, 0);
@@ -221,8 +227,7 @@ mod tests {
         let (source, target) = setup_test_dirs();
         write_fake_audio(target.path(), "old/track.mp3", b"old data");
 
-        let result =
-            compute_one_way_diff("test", source.path(), target.path(), &[]).unwrap();
+        let result = compute_one_way_diff("test", source.path(), target.path(), &[]).unwrap();
 
         assert_eq!(result.total_add, 0);
         assert_eq!(result.total_remove, 1);
@@ -235,8 +240,7 @@ mod tests {
         write_fake_audio(source.path(), "track.flac", b"same data");
         write_fake_audio(target.path(), "track.flac", b"same data");
 
-        let result =
-            compute_one_way_diff("test", source.path(), target.path(), &[]).unwrap();
+        let result = compute_one_way_diff("test", source.path(), target.path(), &[]).unwrap();
 
         // Even though mtimes differ, content hashes match so it's unchanged
         assert_eq!(result.total_unchanged, 1);
@@ -248,8 +252,7 @@ mod tests {
         write_fake_audio(source.path(), "track.flac", b"new version of the track");
         write_fake_audio(target.path(), "track.flac", b"old version");
 
-        let result =
-            compute_one_way_diff("test", source.path(), target.path(), &[]).unwrap();
+        let result = compute_one_way_diff("test", source.path(), target.path(), &[]).unwrap();
 
         assert_eq!(result.total_update, 1);
         assert_eq!(result.entries[0].action, DiffAction::Update);
@@ -261,8 +264,7 @@ mod tests {
         write_fake_audio(source.path(), "readme.txt", b"not audio");
         write_fake_audio(source.path(), "track.flac", b"audio");
 
-        let result =
-            compute_one_way_diff("test", source.path(), target.path(), &[]).unwrap();
+        let result = compute_one_way_diff("test", source.path(), target.path(), &[]).unwrap();
 
         assert_eq!(result.total_add, 1); // only the .flac
     }

@@ -28,7 +28,9 @@ pub fn extract_metadata(path: &Path, library_root: &Path) -> Result<Track, AppEr
     let tagged_file = lofty::read_from_path(path)
         .map_err(|e| AppError::Metadata(format!("{}: {}", path.display(), e)))?;
 
-    let tag = tagged_file.primary_tag().or_else(|| tagged_file.first_tag());
+    let tag = tagged_file
+        .primary_tag()
+        .or_else(|| tagged_file.first_tag());
     let properties = tagged_file.properties();
 
     let (title, artist, album_artist, album, track_number, disc_number, year, genre, has_album_art) =

@@ -4,7 +4,9 @@ use std::time::Duration;
 
 use lofty::picture::PictureType;
 use lofty::prelude::*;
-use souvlaki::{MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig};
+use souvlaki::{
+    MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig,
+};
 
 // ── Public types ───────────────────────────────────────────────────────────────
 
@@ -81,7 +83,13 @@ impl MediaSessionHandle {
 
             while let Ok(cmd) = cmd_rx.recv() {
                 match cmd {
-                    MediaCmd::UpdateMetadata { title, artist, album, duration_secs, cover_url } => {
+                    MediaCmd::UpdateMetadata {
+                        title,
+                        artist,
+                        album,
+                        duration_secs,
+                        cover_url,
+                    } => {
                         let duration = duration_secs.map(|d| Duration::from_secs_f64(d));
                         let metadata = MediaMetadata {
                             title: title.as_deref(),
@@ -133,7 +141,9 @@ impl MediaSessionHandle {
     }
 
     pub fn update_playback(&self, playing: bool, position: Duration) {
-        let _ = self.tx.try_send(MediaCmd::UpdatePlayback { playing, position });
+        let _ = self
+            .tx
+            .try_send(MediaCmd::UpdatePlayback { playing, position });
     }
 }
 
@@ -143,7 +153,9 @@ pub fn extract_cover(file_path: &str) -> Option<String> {
     let path = std::path::Path::new(file_path);
     let tagged_file = lofty::read_from_path(path).ok()?;
 
-    let tag = tagged_file.primary_tag().or_else(|| tagged_file.first_tag())?;
+    let tag = tagged_file
+        .primary_tag()
+        .or_else(|| tagged_file.first_tag())?;
 
     let picture = tag
         .pictures()

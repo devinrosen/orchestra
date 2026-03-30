@@ -15,8 +15,7 @@ pub fn write_metadata(path: &Path, update: &TrackMetadataUpdate) -> Result<(), A
         Some(t) => t,
         None => {
             // Insert a tag appropriate for the format
-            let tag_type = tagged_file
-                .primary_tag_type();
+            let tag_type = tagged_file.primary_tag_type();
             tagged_file.insert_tag(lofty::tag::Tag::new(tag_type));
             tagged_file.primary_tag_mut().unwrap()
         }
@@ -85,7 +84,10 @@ pub fn extract_artwork(path: &Path) -> Result<Option<AlbumArt>, AppError> {
     let tagged_file = lofty::read_from_path(path)
         .map_err(|e| AppError::Metadata(format!("{}: {}", path.display(), e)))?;
 
-    let tag = match tagged_file.primary_tag().or_else(|| tagged_file.first_tag()) {
+    let tag = match tagged_file
+        .primary_tag()
+        .or_else(|| tagged_file.first_tag())
+    {
         Some(t) => t,
         None => return Ok(None),
     };
@@ -100,7 +102,10 @@ pub fn extract_artwork(path: &Path) -> Result<Option<AlbumArt>, AppError> {
     match picture {
         Some(pic) => {
             let data = base64::engine::general_purpose::STANDARD.encode(pic.data());
-            let mime_type = pic.mime_type().map(|m| m.to_string()).unwrap_or_else(|| "image/jpeg".to_string());
+            let mime_type = pic
+                .mime_type()
+                .map(|m| m.to_string())
+                .unwrap_or_else(|| "image/jpeg".to_string());
             Ok(Some(AlbumArt { data, mime_type }))
         }
         None => Ok(None),

@@ -2,9 +2,11 @@ use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
 
-use lofty::prelude::*;
 use lofty::picture::PictureType;
-use souvlaki::{MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig};
+use lofty::prelude::*;
+use souvlaki::{
+    MediaControlEvent, MediaControls, MediaMetadata, MediaPlayback, MediaPosition, PlatformConfig,
+};
 use tauri::{AppHandle, Emitter};
 
 /// Serializable payload emitted to the frontend as a "media-remote" event.
@@ -70,7 +72,9 @@ impl MediaSessionState {
                     MediaControlEvent::Next => Some(RemoteCommandPayload::Next),
                     MediaControlEvent::Previous => Some(RemoteCommandPayload::Previous),
                     MediaControlEvent::SetPosition(MediaPosition(pos)) => {
-                        Some(RemoteCommandPayload::Seek { position: pos.as_secs_f64() })
+                        Some(RemoteCommandPayload::Seek {
+                            position: pos.as_secs_f64(),
+                        })
                     }
                     _ => None,
                 };
@@ -84,8 +88,14 @@ impl MediaSessionState {
 
             while let Ok(cmd) = rx.recv() {
                 match cmd {
-                    MediaCmd::UpdateMetadata { title, artist, album, duration_secs, cover_url } => {
-                        let duration = duration_secs.map(|d| Duration::from_secs_f64(d));
+                    MediaCmd::UpdateMetadata {
+                        title,
+                        artist,
+                        album,
+                        duration_secs,
+                        cover_url,
+                    } => {
+                        let duration = duration_secs.map(Duration::from_secs_f64);
                         let metadata = MediaMetadata {
                             title: title.as_deref(),
                             artist: artist.as_deref(),
@@ -97,7 +107,10 @@ impl MediaSessionState {
                             eprintln!("[media_session] set_metadata error: {e:?}");
                         }
                     }
-                    MediaCmd::UpdatePlayback { playing, position_secs } => {
+                    MediaCmd::UpdatePlayback {
+                        playing,
+                        position_secs,
+                    } => {
                         let progress = Some(MediaPosition(Duration::from_secs_f64(position_secs)));
                         let playback = if playing {
                             MediaPlayback::Playing { progress }
@@ -133,7 +146,10 @@ impl MediaSessionState {
     }
 
     pub fn update_playback(&self, playing: bool, position_secs: f64) {
-        let _ = self.tx.try_send(MediaCmd::UpdatePlayback { playing, position_secs });
+        let _ = self.tx.try_send(MediaCmd::UpdatePlayback {
+            playing,
+            position_secs,
+        });
     }
 }
 
@@ -146,7 +162,9 @@ pub fn extract_cover(file_path: &str) -> Option<String> {
     let path = std::path::Path::new(file_path);
     let tagged_file = lofty::read_from_path(path).ok()?;
 
-    let tag = tagged_file.primary_tag().or_else(|| tagged_file.first_tag())?;
+    let tag = tagged_file
+        .primary_tag()
+        .or_else(|| tagged_file.first_tag())?;
 
     let picture = tag
         .pictures()

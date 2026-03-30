@@ -1,6 +1,6 @@
+use rusqlite::Connection;
 use std::path::Path;
 use std::sync::Mutex;
-use rusqlite::Connection;
 
 use orchestra_core::db::library_repo;
 use orchestra_core::error::AppError;
@@ -39,11 +39,15 @@ pub async fn update_track_metadata(
         let path = Path::new(&update.file_path);
 
         // Re-read to get updated mtime/size and confirm written values
-        let existing = conn.query_row(
-            "SELECT library_root FROM tracks WHERE file_path = ?1",
-            rusqlite::params![update.file_path],
-            |row| row.get::<_, String>(0),
-        ).map_err(|_| AppError::General(format!("Track not found in DB: {}", update.file_path)))?;
+        let existing = conn
+            .query_row(
+                "SELECT library_root FROM tracks WHERE file_path = ?1",
+                rusqlite::params![update.file_path],
+                |row| row.get::<_, String>(0),
+            )
+            .map_err(|_| {
+                AppError::General(format!("Track not found in DB: {}", update.file_path))
+            })?;
 
         let library_root = Path::new(&existing);
         let mut track = metadata::extract_metadata(path, library_root)?;

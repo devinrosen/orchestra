@@ -8,7 +8,12 @@ use crate::models::track::Track;
 pub fn create_playlist(conn: &Connection, playlist: &Playlist) -> Result<(), AppError> {
     conn.execute(
         "INSERT INTO playlists (id, name, created_at, updated_at) VALUES (?1, ?2, ?3, ?4)",
-        params![playlist.id, playlist.name, playlist.created_at, playlist.updated_at],
+        params![
+            playlist.id,
+            playlist.name,
+            playlist.created_at,
+            playlist.updated_at
+        ],
     )?;
     Ok(())
 }
@@ -68,11 +73,7 @@ pub fn delete_playlist(conn: &Connection, id: &str) -> Result<(), AppError> {
     Ok(())
 }
 
-pub fn add_tracks(
-    conn: &Connection,
-    playlist_id: &str,
-    track_ids: &[i64],
-) -> Result<(), AppError> {
+pub fn add_tracks(conn: &Connection, playlist_id: &str, track_ids: &[i64]) -> Result<(), AppError> {
     let max_pos: i32 = conn
         .query_row(
             "SELECT COALESCE(MAX(position), 0) FROM playlist_tracks WHERE playlist_id = ?1",
@@ -166,16 +167,13 @@ pub fn get_playlist_with_tracks(
 }
 
 fn reorder_remaining(conn: &Connection, playlist_id: &str) -> Result<(), AppError> {
-    let mut stmt = conn.prepare(
-        "SELECT id FROM playlist_tracks WHERE playlist_id = ?1 ORDER BY position",
-    )?;
+    let mut stmt =
+        conn.prepare("SELECT id FROM playlist_tracks WHERE playlist_id = ?1 ORDER BY position")?;
     let ids: Vec<i64> = stmt
         .query_map(params![playlist_id], |row| row.get(0))?
         .collect::<Result<Vec<_>, _>>()?;
 
-    let mut update = conn.prepare(
-        "UPDATE playlist_tracks SET position = ?1 WHERE id = ?2",
-    )?;
+    let mut update = conn.prepare("UPDATE playlist_tracks SET position = ?1 WHERE id = ?2")?;
     for (i, id) in ids.iter().enumerate() {
         update.execute(params![i as i32 + 1, id])?;
     }

@@ -121,11 +121,9 @@ mod tests {
         assert_eq!(count, 1);
 
         let stored_track_id: i64 = conn
-            .query_row(
-                "SELECT track_id FROM play_history LIMIT 1",
-                [],
-                |r| r.get(0),
-            )
+            .query_row("SELECT track_id FROM play_history LIMIT 1", [], |r| {
+                r.get(0)
+            })
             .unwrap();
         assert_eq!(stored_track_id, track_id);
     }

@@ -4,6 +4,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::ipc::Channel;
 
+use crate::sync::one_way::copy_file_safe;
 use orchestra_core::db::sync_state_repo::FileBaseline;
 use orchestra_core::error::AppError;
 use orchestra_core::models::conflict::{Conflict, ConflictResolution, ConflictType, Resolution};
@@ -11,7 +12,6 @@ use orchestra_core::models::diff::{DiffAction, DiffDirection, DiffEntry, DiffRes
 use orchestra_core::models::progress::ProgressEvent;
 use orchestra_core::models::track::is_audio_file;
 use orchestra_core::scanner::hasher;
-use crate::sync::one_way::copy_file_safe;
 
 struct FileState {
     hash: String,
@@ -214,9 +214,7 @@ pub fn compute_two_way_diff(
             }
 
             // Neither exists but was in baseline — both deleted
-            (None, None, Some(_)) => {
-                (DiffAction::Unchanged, DiffDirection::Both)
-            }
+            (None, None, Some(_)) => (DiffAction::Unchanged, DiffDirection::Both),
 
             (None, None, None) => unreachable!(),
         };
@@ -310,12 +308,14 @@ pub fn execute_two_way_sync(
                 }
             }
             DiffAction::Add | DiffAction::Update => match entry.direction {
-                DiffDirection::SourceToTarget => {
-                    copy_file_safe(&source.join(&entry.relative_path), &target.join(&entry.relative_path))
-                }
-                DiffDirection::TargetToSource => {
-                    copy_file_safe(&target.join(&entry.relative_path), &source.join(&entry.relative_path))
-                }
+                DiffDirection::SourceToTarget => copy_file_safe(
+                    &source.join(&entry.relative_path),
+                    &target.join(&entry.relative_path),
+                ),
+                DiffDirection::TargetToSource => copy_file_safe(
+                    &target.join(&entry.relative_path),
+                    &source.join(&entry.relative_path),
+                ),
                 DiffDirection::Both => Ok(()),
             },
             DiffAction::Remove => match entry.direction {
@@ -393,10 +393,8 @@ fn apply_resolution(
                 std::fs::rename(&tgt, &conflict_path)?;
                 copy_file_safe(&src, &tgt)?;
                 // Also copy conflict version to source side
-                let src_conflict = source.join(
-                    std::path::Path::new(relative_path)
-                        .with_file_name(&conflict_name),
-                );
+                let src_conflict =
+                    source.join(std::path::Path::new(relative_path).with_file_name(&conflict_name));
                 copy_file_safe(&conflict_path, &src_conflict)?;
             }
             Ok(())
@@ -444,18 +442,16 @@ mod tests {
         write_file(source.path(), "new.flac", b"new track");
 
         let baselines = HashMap::new();
-        let (diff, conflicts) = compute_two_way_diff(
-            "test",
-            source.path(),
-            target.path(),
-            &[],
-            &baselines,
-        )
-        .unwrap();
+        let (diff, conflicts) =
+            compute_two_way_diff("test", source.path(), target.path(), &[], &baselines).unwrap();
 
         assert_eq!(diff.total_add, 1);
         assert_eq!(conflicts.len(), 0);
-        let entry = diff.entries.iter().find(|e| e.relative_path == "new.flac").unwrap();
+        let entry = diff
+            .entries
+            .iter()
+            .find(|e| e.relative_path == "new.flac")
+            .unwrap();
         assert_eq!(entry.action, DiffAction::Add);
         assert_eq!(entry.direction, DiffDirection::SourceToTarget);
     }
@@ -467,18 +463,16 @@ mod tests {
         write_file(target.path(), "new.flac", b"new track on target");
 
         let baselines = HashMap::new();
-        let (diff, conflicts) = compute_two_way_diff(
-            "test",
-            source.path(),
-            target.path(),
-            &[],
-            &baselines,
-        )
-        .unwrap();
+        let (diff, conflicts) =
+            compute_two_way_diff("test", source.path(), target.path(), &[], &baselines).unwrap();
 
         assert_eq!(diff.total_add, 1);
         assert_eq!(conflicts.len(), 0);
-        let entry = diff.entries.iter().find(|e| e.relative_path == "new.flac").unwrap();
+        let entry = diff
+            .entries
+            .iter()
+            .find(|e| e.relative_path == "new.flac")
+            .unwrap();
         assert_eq!(entry.action, DiffAction::Add);
         assert_eq!(entry.direction, DiffDirection::TargetToSource);
     }
@@ -491,14 +485,8 @@ mod tests {
         write_file(target.path(), "track.flac", b"version B");
 
         let baselines = HashMap::new();
-        let (diff, conflicts) = compute_two_way_diff(
-            "test",
-            source.path(),
-            target.path(),
-            &[],
-            &baselines,
-        )
-        .unwrap();
+        let (diff, conflicts) =
+            compute_two_way_diff("test", source.path(), target.path(), &[], &baselines).unwrap();
 
         assert_eq!(diff.total_conflict, 1);
         assert_eq!(conflicts.len(), 1);
@@ -513,14 +501,8 @@ mod tests {
         write_file(target.path(), "track.flac", b"same content");
 
         let baselines = HashMap::new();
-        let (diff, conflicts) = compute_two_way_diff(
-            "test",
-            source.path(),
-            target.path(),
-            &[],
-            &baselines,
-        )
-        .unwrap();
+        let (diff, conflicts) =
+            compute_two_way_diff("test", source.path(), target.path(), &[], &baselines).unwrap();
 
         assert_eq!(diff.total_unchanged, 1);
         assert_eq!(conflicts.len(), 0);
@@ -541,20 +523,21 @@ mod tests {
         };
 
         let mut baselines = HashMap::new();
-        baselines.insert("track.flac".to_string(), make_baseline("track.flac", &orig_hash));
+        baselines.insert(
+            "track.flac".to_string(),
+            make_baseline("track.flac", &orig_hash),
+        );
 
-        let (diff, conflicts) = compute_two_way_diff(
-            "test",
-            source.path(),
-            target.path(),
-            &[],
-            &baselines,
-        )
-        .unwrap();
+        let (diff, conflicts) =
+            compute_two_way_diff("test", source.path(), target.path(), &[], &baselines).unwrap();
 
         assert_eq!(diff.total_update, 1);
         assert_eq!(conflicts.len(), 0);
-        let entry = diff.entries.iter().find(|e| e.relative_path == "track.flac").unwrap();
+        let entry = diff
+            .entries
+            .iter()
+            .find(|e| e.relative_path == "track.flac")
+            .unwrap();
         assert_eq!(entry.direction, DiffDirection::SourceToTarget);
     }
 
@@ -572,16 +555,13 @@ mod tests {
         };
 
         let mut baselines = HashMap::new();
-        baselines.insert("track.flac".to_string(), make_baseline("track.flac", &orig_hash));
+        baselines.insert(
+            "track.flac".to_string(),
+            make_baseline("track.flac", &orig_hash),
+        );
 
-        let (diff, conflicts) = compute_two_way_diff(
-            "test",
-            source.path(),
-            target.path(),
-            &[],
-            &baselines,
-        )
-        .unwrap();
+        let (diff, conflicts) =
+            compute_two_way_diff("test", source.path(), target.path(), &[], &baselines).unwrap();
 
         assert_eq!(diff.total_conflict, 1);
         assert_eq!(conflicts.len(), 1);
@@ -602,20 +582,21 @@ mod tests {
         };
 
         let mut baselines = HashMap::new();
-        baselines.insert("track.flac".to_string(), make_baseline("track.flac", &orig_hash));
+        baselines.insert(
+            "track.flac".to_string(),
+            make_baseline("track.flac", &orig_hash),
+        );
 
-        let (diff, _conflicts) = compute_two_way_diff(
-            "test",
-            source.path(),
-            target.path(),
-            &[],
-            &baselines,
-        )
-        .unwrap();
+        let (diff, _conflicts) =
+            compute_two_way_diff("test", source.path(), target.path(), &[], &baselines).unwrap();
 
         // Deleted from source, target unchanged → propagate delete to target
         assert_eq!(diff.total_remove, 1);
-        let entry = diff.entries.iter().find(|e| e.relative_path == "track.flac").unwrap();
+        let entry = diff
+            .entries
+            .iter()
+            .find(|e| e.relative_path == "track.flac")
+            .unwrap();
         assert_eq!(entry.action, DiffAction::Remove);
         assert_eq!(entry.direction, DiffDirection::TargetToSource);
     }

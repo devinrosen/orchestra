@@ -139,9 +139,7 @@ pub fn run_migrations(conn: &Connection) -> Result<(), AppError> {
         .map(|count| count > 0)?;
 
     if !has_bitrate {
-        conn.execute_batch(
-            "ALTER TABLE tracks ADD COLUMN bitrate INTEGER;",
-        )?;
+        conn.execute_batch("ALTER TABLE tracks ADD COLUMN bitrate INTEGER;")?;
     }
 
     let has_scanned_at: bool = conn
@@ -150,9 +148,7 @@ pub fn run_migrations(conn: &Connection) -> Result<(), AppError> {
         .map(|count| count > 0)?;
 
     if !has_scanned_at {
-        conn.execute_batch(
-            "ALTER TABLE tracks ADD COLUMN scanned_at INTEGER NOT NULL DEFAULT 0;",
-        )?;
+        conn.execute_batch("ALTER TABLE tracks ADD COLUMN scanned_at INTEGER NOT NULL DEFAULT 0;")?;
     }
 
     conn.execute_batch(

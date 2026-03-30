@@ -3,7 +3,10 @@ use walkdir::WalkDir;
 
 use crate::models::track::is_audio_file;
 
-pub fn walk_directory_iter(root: &Path, exclude_patterns: &[String]) -> impl Iterator<Item = PathBuf> {
+pub fn walk_directory_iter(
+    root: &Path,
+    exclude_patterns: &[String],
+) -> impl Iterator<Item = PathBuf> {
     let compiled_patterns: Vec<glob::Pattern> = exclude_patterns
         .iter()
         .filter_map(|p| glob::Pattern::new(p).ok())

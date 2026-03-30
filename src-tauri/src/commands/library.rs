@@ -1,7 +1,7 @@
+use rusqlite::Connection;
 use std::collections::HashSet;
 use std::path::Path;
 use std::sync::Mutex;
-use rusqlite::Connection;
 use tauri::ipc::Channel;
 use walkdir::WalkDir;
 
@@ -34,7 +34,11 @@ pub async fn scan_directory(
 
     // ── Phase 1: Directory-only walk (fast — no per-file stat) ──
     let mut disk_dirs: HashSet<String> = HashSet::new();
-    for entry in WalkDir::new(root).follow_links(true).into_iter().filter_map(|e| e.ok()) {
+    for entry in WalkDir::new(root)
+        .follow_links(true)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
         if entry.file_type().is_dir() {
             let rel = entry.path().strip_prefix(root).unwrap_or(entry.path());
             let dir = rel.to_string_lossy().to_string();
@@ -72,7 +76,11 @@ pub async fn scan_directory(
                 let _ = on_progress.send(ProgressEvent::ScanProgress {
                     files_found: files.len(),
                     files_processed: new_track_count,
-                    current_file: file_path.file_name().unwrap_or_default().to_string_lossy().to_string(),
+                    current_file: file_path
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .to_string(),
                     dirs_total: new_dirs.len(),
                     dirs_completed: i,
                 });
@@ -129,11 +137,15 @@ pub async fn scan_directory(
 
         files_processed += 1;
 
-        if files_processed % 50 == 0 {
+        if files_processed.is_multiple_of(50) {
             let _ = on_progress.send(ProgressEvent::ScanProgress {
                 files_found: 0,
                 files_processed,
-                current_file: file_path.file_name().unwrap_or_default().to_string_lossy().to_string(),
+                current_file: file_path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string(),
                 dirs_total: 0,
                 dirs_completed: 0,
             });
@@ -364,10 +376,7 @@ fn read_folder_metadata(src: &Path) -> (String, String) {
             );
         }
     }
-    (
-        "Unknown Artist".to_string(),
-        "Unknown Album".to_string(),
-    )
+    ("Unknown Artist".to_string(), "Unknown Album".to_string())
 }
 
 /// Copy audio files from `source_paths` into `library_root`, extract metadata, and upsert to DB.
@@ -393,13 +402,19 @@ fn do_import_tracks(
 
         // Skip missing source files
         if !src.exists() {
-            eprintln!("import_tracks: source path does not exist, skipping: {}", source_path);
+            eprintln!(
+                "import_tracks: source path does not exist, skipping: {}",
+                source_path
+            );
             continue;
         }
 
         // Skip non-audio files
         if !is_audio_file(src) {
-            eprintln!("import_tracks: not an audio file, skipping: {}", source_path);
+            eprintln!(
+                "import_tracks: not an audio file, skipping: {}",
+                source_path
+            );
             continue;
         }
 
@@ -407,7 +422,10 @@ fn do_import_tracks(
         let filename = match src.file_name() {
             Some(n) => n.to_string_lossy().to_string(),
             None => {
-                eprintln!("import_tracks: cannot determine filename, skipping: {}", source_path);
+                eprintln!(
+                    "import_tracks: cannot determine filename, skipping: {}",
+                    source_path
+                );
                 continue;
             }
         };
@@ -416,7 +434,11 @@ fn do_import_tracks(
         let (artist_folder, album_folder) = read_folder_metadata(src);
         let dest_dir = root.join(&artist_folder).join(&album_folder);
         if let Err(e) = std::fs::create_dir_all(&dest_dir) {
-            eprintln!("import_tracks: failed to create directory {}: {}", dest_dir.display(), e);
+            eprintln!(
+                "import_tracks: failed to create directory {}: {}",
+                dest_dir.display(),
+                e
+            );
             continue;
         }
 
@@ -464,7 +486,7 @@ fn do_import_tracks(
         }
 
         // Send progress before metadata extraction
-        let _ = on_event(ProgressEvent::ScanProgress {
+        on_event(ProgressEvent::ScanProgress {
             files_found: total,
             files_processed: i + 1,
             current_file: dest_path
@@ -560,14 +582,21 @@ mod hash_progress_tests {
             .iter()
             .filter(|e| matches!(e, ProgressEvent::HashStarted { total: 3 }))
             .collect();
-        assert_eq!(started.len(), 1, "expected exactly one HashStarted {{ total: 3 }}");
+        assert_eq!(
+            started.len(),
+            1,
+            "expected exactly one HashStarted {{ total: 3 }}"
+        );
 
         // Must have at least one HashProgress with total_files = 3
         let progress: Vec<_> = collected
             .iter()
             .filter(|e| matches!(e, ProgressEvent::HashProgress { total_files: 3, .. }))
             .collect();
-        assert!(!progress.is_empty(), "expected at least one HashProgress event");
+        assert!(
+            !progress.is_empty(),
+            "expected at least one HashProgress event"
+        );
     }
 
     #[test]
@@ -646,8 +675,15 @@ mod import_tracks_tests {
 
         // The file must be copied into the organized subfolder (Unknown Artist/Unknown Album
         // because fake audio has no metadata).
-        let dest = library_dir.path().join("Unknown Artist").join("Unknown Album").join("track.flac");
-        assert!(dest.exists(), "expected track.flac to be copied into Unknown Artist/Unknown Album/");
+        let dest = library_dir
+            .path()
+            .join("Unknown Artist")
+            .join("Unknown Album")
+            .join("track.flac");
+        assert!(
+            dest.exists(),
+            "expected track.flac to be copied into Unknown Artist/Unknown Album/"
+        );
     }
 
     #[test]
@@ -656,7 +692,10 @@ mod import_tracks_tests {
         let source_dir = TempDir::new().unwrap();
 
         // Pre-place a file named track.flac in the organized subfolder
-        let dest_dir = library_dir.path().join("Unknown Artist").join("Unknown Album");
+        let dest_dir = library_dir
+            .path()
+            .join("Unknown Artist")
+            .join("Unknown Album");
         std::fs::create_dir_all(&dest_dir).unwrap();
         std::fs::write(dest_dir.join("track.flac"), b"original").unwrap();
 
@@ -702,7 +741,11 @@ mod import_tracks_tests {
         );
 
         // Non-audio files must be skipped silently — no error, count = 0
-        assert!(result.is_ok(), "expected Ok for non-audio file, got {:?}", result);
+        assert!(
+            result.is_ok(),
+            "expected Ok for non-audio file, got {:?}",
+            result
+        );
         assert_eq!(result.unwrap(), 0, "expected 0 imported tracks");
 
         // Nothing must be copied into the library root
@@ -718,7 +761,11 @@ mod import_tracks_tests {
         let library_dir = TempDir::new().unwrap();
         let source_dir = TempDir::new().unwrap();
 
-        let missing_path = source_dir.path().join("does_not_exist.flac").to_string_lossy().to_string();
+        let missing_path = source_dir
+            .path()
+            .join("does_not_exist.flac")
+            .to_string_lossy()
+            .to_string();
         let existing_path = write_fake_audio(source_dir.path(), "present.flac");
 
         let conn = setup_db();
@@ -732,11 +779,22 @@ mod import_tracks_tests {
         );
 
         // Missing source path must be skipped — function must not error
-        assert!(result.is_ok(), "expected Ok when source path is missing, got {:?}", result);
+        assert!(
+            result.is_ok(),
+            "expected Ok when source path is missing, got {:?}",
+            result
+        );
 
         // The valid file must be copied into the organized subfolder
-        let dest = library_dir.path().join("Unknown Artist").join("Unknown Album").join("present.flac");
-        assert!(dest.exists(), "expected present.flac to be copied despite missing sibling path");
+        let dest = library_dir
+            .path()
+            .join("Unknown Artist")
+            .join("Unknown Album")
+            .join("present.flac");
+        assert!(
+            dest.exists(),
+            "expected present.flac to be copied despite missing sibling path"
+        );
     }
 
     #[test]
@@ -752,26 +810,30 @@ mod import_tracks_tests {
         let db = Mutex::new(conn);
 
         let mut events: Vec<ProgressEvent> = Vec::new();
-        let _result = do_import_tracks(
-            &db,
-            &paths,
-            library_dir.path().to_str().unwrap(),
-            |evt| events.push(evt),
-        );
+        let _result = do_import_tracks(&db, &paths, library_dir.path().to_str().unwrap(), |evt| {
+            events.push(evt)
+        });
 
         // At least one ScanProgress event must be emitted (one per successfully copied file)
         let progress_count = events
             .iter()
             .filter(|e| matches!(e, ProgressEvent::ScanProgress { .. }))
             .count();
-        assert!(progress_count > 0, "expected at least one ScanProgress event");
+        assert!(
+            progress_count > 0,
+            "expected at least one ScanProgress event"
+        );
 
         // Exactly one ScanComplete must be emitted at the end
         let complete_events: Vec<_> = events
             .iter()
             .filter(|e| matches!(e, ProgressEvent::ScanComplete { .. }))
             .collect();
-        assert_eq!(complete_events.len(), 1, "expected exactly one ScanComplete event");
+        assert_eq!(
+            complete_events.len(),
+            1,
+            "expected exactly one ScanComplete event"
+        );
 
         // ScanComplete must be the last event
         assert!(
@@ -802,19 +864,30 @@ mod import_tracks_tests {
         let conn = setup_db();
         let db = Mutex::new(conn);
 
-        let _result = do_import_tracks(
-            &db,
-            &[p1, p2],
-            library_dir.path().to_str().unwrap(),
-            |_| {},
+        let _result =
+            do_import_tracks(&db, &[p1, p2], library_dir.path().to_str().unwrap(), |_| {});
+
+        let organized = library_dir
+            .path()
+            .join("Unknown Artist")
+            .join("Unknown Album");
+        assert!(
+            organized.join("song_a.flac").exists(),
+            "song_a.flac must be in organized folder"
+        );
+        assert!(
+            organized.join("song_b.mp3").exists(),
+            "song_b.mp3 must be in organized folder"
         );
 
-        let organized = library_dir.path().join("Unknown Artist").join("Unknown Album");
-        assert!(organized.join("song_a.flac").exists(), "song_a.flac must be in organized folder");
-        assert!(organized.join("song_b.mp3").exists(), "song_b.mp3 must be in organized folder");
-
         // Root should NOT contain the files directly
-        assert!(!library_dir.path().join("song_a.flac").exists(), "files should not be in root");
-        assert!(!library_dir.path().join("song_b.mp3").exists(), "files should not be in root");
+        assert!(
+            !library_dir.path().join("song_a.flac").exists(),
+            "files should not be in root"
+        );
+        assert!(
+            !library_dir.path().join("song_b.mp3").exists(),
+            "files should not be in root"
+        );
     }
 }

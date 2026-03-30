@@ -1,10 +1,12 @@
-use std::collections::HashMap;
 use rusqlite::{params, Connection};
+use std::collections::HashMap;
 
 use crate::error::AppError;
 use crate::models::device::{AlbumSelection, AlbumSummary, ArtistSummary};
 use crate::models::duplicate::{DuplicateGroup, DuplicateMatchType};
-use crate::models::track::{AlbumNode, ArtistNode, FormatStat, GenreStat, LibraryStats, LibraryTree, Track};
+use crate::models::track::{
+    AlbumNode, ArtistNode, FormatStat, GenreStat, LibraryStats, LibraryTree, Track,
+};
 
 /// Maps a row from a SELECT that returns all 20 Track columns (id first) to a Track struct.
 pub(crate) fn track_from_row(row: &rusqlite::Row) -> rusqlite::Result<Track> {
@@ -84,7 +86,9 @@ pub fn remove_tracks_not_in(
         return Ok(deleted);
     }
 
-    let placeholders: Vec<String> = (0..existing_paths.len()).map(|i| format!("?{}", i + 2)).collect();
+    let placeholders: Vec<String> = (0..existing_paths.len())
+        .map(|i| format!("?{}", i + 2))
+        .collect();
     let sql = format!(
         "DELETE FROM tracks WHERE library_root = ?1 AND file_path NOT IN ({})",
         placeholders.join(",")
@@ -95,7 +99,8 @@ pub fn remove_tracks_not_in(
     for p in existing_paths {
         param_values.push(Box::new(p.clone()));
     }
-    let params_ref: Vec<&dyn rusqlite::types::ToSql> = param_values.iter().map(|p| p.as_ref()).collect();
+    let params_ref: Vec<&dyn rusqlite::types::ToSql> =
+        param_values.iter().map(|p| p.as_ref()).collect();
 
     let deleted = conn.execute(&sql, params_ref.as_slice())?;
     Ok(deleted)
@@ -106,9 +111,7 @@ pub fn get_known_directories(
     conn: &Connection,
     library_root: &str,
 ) -> Result<std::collections::HashSet<String>, AppError> {
-    let mut stmt = conn.prepare(
-        "SELECT relative_path FROM tracks WHERE library_root = ?1",
-    )?;
+    let mut stmt = conn.prepare("SELECT relative_path FROM tracks WHERE library_root = ?1")?;
     let paths: Vec<String> = stmt
         .query_map(params![library_root], |row| row.get(0))?
         .collect::<Result<Vec<_>, _>>()?;
@@ -145,9 +148,8 @@ pub fn get_track_fingerprints(
     conn: &Connection,
     library_root: &str,
 ) -> Result<HashMap<String, (u64, i64)>, AppError> {
-    let mut stmt = conn.prepare(
-        "SELECT file_path, file_size, modified_at FROM tracks WHERE library_root = ?1",
-    )?;
+    let mut stmt = conn
+        .prepare("SELECT file_path, file_size, modified_at FROM tracks WHERE library_root = ?1")?;
     let rows = stmt.query_map(params![library_root], |row| {
         Ok((
             row.get::<_, String>(0)?,
@@ -202,16 +204,17 @@ pub fn get_library_tree(conn: &Connection, library_root: &str) -> Result<Library
             artists.last_mut().unwrap()
         };
 
-        let album_node = if let Some(a) = artist_node.albums.iter_mut().find(|a| a.name == album_name) {
-            a
-        } else {
-            artist_node.albums.push(AlbumNode {
-                name: album_name.clone(),
-                year: track.year,
-                tracks: Vec::new(),
-            });
-            artist_node.albums.last_mut().unwrap()
-        };
+        let album_node =
+            if let Some(a) = artist_node.albums.iter_mut().find(|a| a.name == album_name) {
+                a
+            } else {
+                artist_node.albums.push(AlbumNode {
+                    name: album_name.clone(),
+                    year: track.year,
+                    tracks: Vec::new(),
+                });
+                artist_node.albums.last_mut().unwrap()
+            };
 
         album_node.tracks.push(track);
     }
@@ -288,11 +291,14 @@ pub fn get_tracks_for_device(
         param_values.push(Box::new(library_root.to_string()));
         idx += 1;
 
-        let placeholders: Vec<String> = artist_names.iter().map(|_| {
-            let p = format!("?{}", idx);
-            idx += 1;
-            p
-        }).collect();
+        let placeholders: Vec<String> = artist_names
+            .iter()
+            .map(|_| {
+                let p = format!("?{}", idx);
+                idx += 1;
+                p
+            })
+            .collect();
         for name in artist_names {
             param_values.push(Box::new(name.clone()));
         }
@@ -321,7 +327,9 @@ pub fn get_tracks_for_device(
 
         query_parts.push(format!(
             "SELECT {} FROM tracks WHERE library_root = {} AND ({})",
-            select_cols, lib_param, conditions.join(" OR ")
+            select_cols,
+            lib_param,
+            conditions.join(" OR ")
         ));
     }
 
@@ -394,12 +402,14 @@ pub fn get_library_stats(conn: &Connection, library_root: &str) -> Result<Librar
                     AVG(bitrate)
              FROM tracks WHERE library_root = ?1",
             params![library_root],
-            |row| Ok((
-                row.get::<_, i64>(0)? as usize,
-                row.get::<_, i64>(1)? as u64,
-                row.get::<_, f64>(2)?,
-                row.get::<_, Option<f64>>(3)?,
-            )),
+            |row| {
+                Ok((
+                    row.get::<_, i64>(0)? as usize,
+                    row.get::<_, i64>(1)? as u64,
+                    row.get::<_, f64>(2)?,
+                    row.get::<_, Option<f64>>(3)?,
+                ))
+            },
         )?;
 
     let total_artists: usize = conn.query_row(
@@ -563,9 +573,8 @@ pub fn get_tracks_without_hash(
     conn: &Connection,
     library_root: &str,
 ) -> Result<Vec<(i64, String)>, AppError> {
-    let mut stmt = conn.prepare(
-        "SELECT id, file_path FROM tracks WHERE library_root = ?1 AND hash IS NULL",
-    )?;
+    let mut stmt =
+        conn.prepare("SELECT id, file_path FROM tracks WHERE library_root = ?1 AND hash IS NULL")?;
     let rows = stmt
         .query_map(params![library_root], |row| {
             Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
@@ -611,8 +620,13 @@ fn setup_db() -> Connection {
 
 #[cfg(test)]
 fn make_track(
-    artist: &str, album: &str, format: &str, genre: &str,
-    size: u64, duration: f64, bitrate: Option<u32>,
+    artist: &str,
+    album: &str,
+    format: &str,
+    genre: &str,
+    size: u64,
+    duration: f64,
+    bitrate: Option<u32>,
     file_suffix: &str,
 ) -> Track {
     Track {
@@ -660,9 +674,48 @@ mod stats_tests {
     #[test]
     fn test_stats_counts_and_totals() {
         let conn = setup_db();
-        upsert_track(&conn, &make_track("ArtistA", "Album1", "flac", "Rock", 50_000_000, 300.0, Some(1411), "t1")).unwrap();
-        upsert_track(&conn, &make_track("ArtistA", "Album1", "flac", "Rock", 48_000_000, 280.0, Some(1411), "t2")).unwrap();
-        upsert_track(&conn, &make_track("ArtistB", "Album2", "mp3", "Jazz", 8_000_000, 240.0, Some(320), "t3")).unwrap();
+        upsert_track(
+            &conn,
+            &make_track(
+                "ArtistA",
+                "Album1",
+                "flac",
+                "Rock",
+                50_000_000,
+                300.0,
+                Some(1411),
+                "t1",
+            ),
+        )
+        .unwrap();
+        upsert_track(
+            &conn,
+            &make_track(
+                "ArtistA",
+                "Album1",
+                "flac",
+                "Rock",
+                48_000_000,
+                280.0,
+                Some(1411),
+                "t2",
+            ),
+        )
+        .unwrap();
+        upsert_track(
+            &conn,
+            &make_track(
+                "ArtistB",
+                "Album2",
+                "mp3",
+                "Jazz",
+                8_000_000,
+                240.0,
+                Some(320),
+                "t3",
+            ),
+        )
+        .unwrap();
 
         let stats = get_library_stats(&conn, "/music").unwrap();
         assert_eq!(stats.total_tracks, 3);
@@ -675,9 +728,21 @@ mod stats_tests {
     #[test]
     fn test_stats_format_breakdown() {
         let conn = setup_db();
-        upsert_track(&conn, &make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, None, "t1")).unwrap();
-        upsert_track(&conn, &make_track("A", "A1", "flac", "Rock", 48_000_000, 280.0, None, "t2")).unwrap();
-        upsert_track(&conn, &make_track("B", "B1", "mp3", "Jazz", 8_000_000, 240.0, None, "t3")).unwrap();
+        upsert_track(
+            &conn,
+            &make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, None, "t1"),
+        )
+        .unwrap();
+        upsert_track(
+            &conn,
+            &make_track("A", "A1", "flac", "Rock", 48_000_000, 280.0, None, "t2"),
+        )
+        .unwrap();
+        upsert_track(
+            &conn,
+            &make_track("B", "B1", "mp3", "Jazz", 8_000_000, 240.0, None, "t3"),
+        )
+        .unwrap();
 
         let stats = get_library_stats(&conn, "/music").unwrap();
         assert_eq!(stats.formats.len(), 2);
@@ -690,9 +755,21 @@ mod stats_tests {
     #[test]
     fn test_stats_genre_breakdown() {
         let conn = setup_db();
-        upsert_track(&conn, &make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, None, "t1")).unwrap();
-        upsert_track(&conn, &make_track("B", "B1", "mp3", "Rock", 8_000_000, 240.0, None, "t2")).unwrap();
-        upsert_track(&conn, &make_track("C", "C1", "flac", "Jazz", 45_000_000, 300.0, None, "t3")).unwrap();
+        upsert_track(
+            &conn,
+            &make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, None, "t1"),
+        )
+        .unwrap();
+        upsert_track(
+            &conn,
+            &make_track("B", "B1", "mp3", "Rock", 8_000_000, 240.0, None, "t2"),
+        )
+        .unwrap();
+        upsert_track(
+            &conn,
+            &make_track("C", "C1", "flac", "Jazz", 45_000_000, 300.0, None, "t3"),
+        )
+        .unwrap();
 
         let stats = get_library_stats(&conn, "/music").unwrap();
         assert_eq!(stats.genres.len(), 2);
@@ -705,8 +782,25 @@ mod stats_tests {
     #[test]
     fn test_stats_avg_bitrate() {
         let conn = setup_db();
-        upsert_track(&conn, &make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, Some(1411), "t1")).unwrap();
-        upsert_track(&conn, &make_track("B", "B1", "mp3", "Jazz", 8_000_000, 240.0, Some(320), "t2")).unwrap();
+        upsert_track(
+            &conn,
+            &make_track(
+                "A",
+                "A1",
+                "flac",
+                "Rock",
+                50_000_000,
+                300.0,
+                Some(1411),
+                "t1",
+            ),
+        )
+        .unwrap();
+        upsert_track(
+            &conn,
+            &make_track("B", "B1", "mp3", "Jazz", 8_000_000, 240.0, Some(320), "t2"),
+        )
+        .unwrap();
 
         let stats = get_library_stats(&conn, "/music").unwrap();
         let avg = stats.avg_bitrate.unwrap();
@@ -716,8 +810,25 @@ mod stats_tests {
     #[test]
     fn test_stats_avg_bitrate_with_nulls() {
         let conn = setup_db();
-        upsert_track(&conn, &make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, Some(1000), "t1")).unwrap();
-        upsert_track(&conn, &make_track("B", "B1", "mp3", "Jazz", 8_000_000, 240.0, None, "t2")).unwrap();
+        upsert_track(
+            &conn,
+            &make_track(
+                "A",
+                "A1",
+                "flac",
+                "Rock",
+                50_000_000,
+                300.0,
+                Some(1000),
+                "t1",
+            ),
+        )
+        .unwrap();
+        upsert_track(
+            &conn,
+            &make_track("B", "B1", "mp3", "Jazz", 8_000_000, 240.0, None, "t2"),
+        )
+        .unwrap();
 
         let stats = get_library_stats(&conn, "/music").unwrap();
         // AVG ignores NULLs in SQLite, so only the 1000 is counted
@@ -728,14 +839,19 @@ mod stats_tests {
     #[test]
     fn test_stats_scoped_to_library_root() {
         let conn = setup_db();
-        upsert_track(&conn, &make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, None, "t1")).unwrap();
+        upsert_track(
+            &conn,
+            &make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, None, "t1"),
+        )
+        .unwrap();
         upsert_track(&conn, &{
             let mut t = make_track("B", "B1", "mp3", "Jazz", 8_000_000, 240.0, None, "t2");
             t.file_path = "/other/B/B1/t2.mp3".to_string();
             t.relative_path = "B/B1/t2.mp3".to_string();
             t.library_root = "/other".to_string();
             t
-        }).unwrap();
+        })
+        .unwrap();
 
         let stats = get_library_stats(&conn, "/music").unwrap();
         assert_eq!(stats.total_tracks, 1);
@@ -813,10 +929,14 @@ mod duplicate_tests {
     #[test]
     fn test_find_metadata_duplicates_same_title_artist_duration() {
         let conn = setup_db();
-        let mut t1 = make_track("Artist", "Album1", "flac", "Rock", 50_000_000, 180.0, None, "t1");
+        let mut t1 = make_track(
+            "Artist", "Album1", "flac", "Rock", 50_000_000, 180.0, None, "t1",
+        );
         t1.title = Some("Song".to_string());
         t1.hash = Some("hash_a".to_string());
-        let mut t2 = make_track("Artist", "Album2", "mp3", "Rock", 8_000_000, 180.0, None, "t2");
+        let mut t2 = make_track(
+            "Artist", "Album2", "mp3", "Rock", 8_000_000, 180.0, None, "t2",
+        );
         t2.title = Some("Song".to_string());
         t2.hash = Some("hash_b".to_string());
         upsert_track(&conn, &t1).unwrap();
@@ -831,10 +951,14 @@ mod duplicate_tests {
     #[test]
     fn test_find_metadata_duplicates_skips_already_hash_matched() {
         let conn = setup_db();
-        let mut t1 = make_track("Artist", "Album1", "flac", "Rock", 50_000_000, 180.0, None, "t1");
+        let mut t1 = make_track(
+            "Artist", "Album1", "flac", "Rock", 50_000_000, 180.0, None, "t1",
+        );
         t1.title = Some("Song".to_string());
         t1.hash = Some("hash_same".to_string());
-        let mut t2 = make_track("Artist", "Album2", "mp3", "Rock", 8_000_000, 180.0, None, "t2");
+        let mut t2 = make_track(
+            "Artist", "Album2", "mp3", "Rock", 8_000_000, 180.0, None, "t2",
+        );
         t2.title = Some("Song".to_string());
         t2.hash = Some("hash_same".to_string());
         upsert_track(&conn, &t1).unwrap();
@@ -847,10 +971,14 @@ mod duplicate_tests {
     #[test]
     fn test_find_metadata_duplicates_duration_bucket_tolerance() {
         let conn = setup_db();
-        let mut t1 = make_track("Artist", "Album1", "flac", "Rock", 50_000_000, 179.6, None, "t1");
+        let mut t1 = make_track(
+            "Artist", "Album1", "flac", "Rock", 50_000_000, 179.6, None, "t1",
+        );
         t1.title = Some("Song".to_string());
         t1.hash = Some("hash_a".to_string());
-        let mut t2 = make_track("Artist", "Album2", "mp3", "Rock", 8_000_000, 180.4, None, "t2");
+        let mut t2 = make_track(
+            "Artist", "Album2", "mp3", "Rock", 8_000_000, 180.4, None, "t2",
+        );
         t2.title = Some("Song".to_string());
         t2.hash = Some("hash_b".to_string());
         upsert_track(&conn, &t1).unwrap();
@@ -863,10 +991,14 @@ mod duplicate_tests {
     #[test]
     fn test_find_metadata_duplicates_case_insensitive() {
         let conn = setup_db();
-        let mut t1 = make_track("Beatles", "Album1", "flac", "Rock", 50_000_000, 180.0, None, "t1");
+        let mut t1 = make_track(
+            "Beatles", "Album1", "flac", "Rock", 50_000_000, 180.0, None, "t1",
+        );
         t1.title = Some("My Song".to_string());
         t1.hash = Some("hash_a".to_string());
-        let mut t2 = make_track("beatles", "Album2", "mp3", "Rock", 8_000_000, 180.0, None, "t2");
+        let mut t2 = make_track(
+            "beatles", "Album2", "mp3", "Rock", 8_000_000, 180.0, None, "t2",
+        );
         t2.title = Some("my song".to_string());
         t2.hash = Some("hash_b".to_string());
         upsert_track(&conn, &t1).unwrap();
@@ -910,9 +1042,11 @@ mod duplicate_tests {
 
         // Verify via direct query
         let hash: Option<String> = conn
-            .query_row("SELECT hash FROM tracks WHERE id = ?1", params![id], |row| {
-                row.get(0)
-            })
+            .query_row(
+                "SELECT hash FROM tracks WHERE id = ?1",
+                params![id],
+                |row| row.get(0),
+            )
             .unwrap();
         assert_eq!(hash, Some("new_hash".to_string()));
     }
@@ -920,9 +1054,21 @@ mod duplicate_tests {
     #[test]
     fn test_delete_tracks_by_ids() {
         let conn = setup_db();
-        upsert_track(&conn, &make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, None, "t1")).unwrap();
-        upsert_track(&conn, &make_track("A", "A1", "flac", "Rock", 48_000_000, 280.0, None, "t2")).unwrap();
-        upsert_track(&conn, &make_track("B", "B1", "mp3", "Jazz", 8_000_000, 240.0, None, "t3")).unwrap();
+        upsert_track(
+            &conn,
+            &make_track("A", "A1", "flac", "Rock", 50_000_000, 300.0, None, "t1"),
+        )
+        .unwrap();
+        upsert_track(
+            &conn,
+            &make_track("A", "A1", "flac", "Rock", 48_000_000, 280.0, None, "t2"),
+        )
+        .unwrap();
+        upsert_track(
+            &conn,
+            &make_track("B", "B1", "mp3", "Jazz", 8_000_000, 240.0, None, "t3"),
+        )
+        .unwrap();
 
         // Get all track ids
         let mut stmt = conn.prepare("SELECT id FROM tracks ORDER BY id").unwrap();

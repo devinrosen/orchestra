@@ -1,16 +1,16 @@
+use rusqlite::Connection;
 use std::path::Path;
 use std::sync::Mutex;
-use rusqlite::Connection;
 use tauri::ipc::Channel;
 
+use crate::sync::progress::CancelToken;
+use crate::sync::{diff, one_way, two_way};
 use orchestra_core::db::{profile_repo, sync_state_repo};
 use orchestra_core::error::AppError;
 use orchestra_core::models::conflict::{Conflict, ConflictResolution};
 use orchestra_core::models::diff::DiffResult;
 use orchestra_core::models::progress::ProgressEvent;
 use orchestra_core::models::sync_profile::SyncMode;
-use crate::sync::progress::CancelToken;
-use crate::sync::{diff, one_way, two_way};
 
 #[tauri::command]
 pub async fn compute_diff(
@@ -36,12 +36,8 @@ pub async fn compute_diff(
 
     match profile.sync_mode {
         SyncMode::OneWay => {
-            let result = diff::compute_one_way_diff(
-                &profile_id,
-                source,
-                target,
-                &profile.exclude_patterns,
-            )?;
+            let result =
+                diff::compute_one_way_diff(&profile_id, source, target, &profile.exclude_patterns)?;
             Ok((result, vec![]))
         }
         SyncMode::TwoWay => two_way::compute_two_way_diff(

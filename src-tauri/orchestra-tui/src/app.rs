@@ -135,11 +135,7 @@ impl App {
     /// When filter_text is empty, returns all artists with their original indices.
     pub fn filtered_artists(&self) -> Vec<(usize, &ArtistNode)> {
         if self.filter_text.is_empty() {
-            self.tree
-                .artists
-                .iter()
-                .enumerate()
-                .collect()
+            self.tree.artists.iter().enumerate().collect()
         } else {
             let needle = self.filter_text.to_lowercase();
             self.tree
@@ -410,5 +406,4 @@ impl App {
             _ => {}
         }
     }
-
 }
