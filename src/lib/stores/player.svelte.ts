@@ -1,6 +1,7 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import type { Track, AlbumArt } from "../api/types";
-import { getTrackArtwork, recordPlay } from "../api/commands";
+import { getTrackArtwork, recordPlay, updateNowPlaying, updatePlaybackState } from "../api/commands";
 import { equalizerStore } from "./equalizer.svelte";
 
 class PlayerStore {
@@ -26,6 +27,8 @@ class PlayerStore {
   private audioContext: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
   private sourceNode: MediaElementAudioSourceNode | null = null;
+  private lastPositionUpdateTime = 0;
+  private mediaRemoteUnlisten: (() => void) | null = null;
 
   getAnalyser(): AnalyserNode | null {
     return this.analyser;
@@ -69,6 +72,12 @@ class PlayerStore {
     el.addEventListener("timeupdate", () => {
       this.currentTime = el.currentTime;
       this.duration = el.duration || 0;
+      // Throttle Now Playing position updates to ~1 Hz to reduce IPC overhead
+      const now = Date.now();
+      if (now - this.lastPositionUpdateTime > 1000) {
+        this.lastPositionUpdateTime = now;
+        updatePlaybackState({ playing: !el.paused, positionSecs: el.currentTime }).catch(() => {});
+      }
     });
 
     el.addEventListener("ended", () => {
@@ -77,11 +86,40 @@ class PlayerStore {
 
     el.addEventListener("play", () => {
       this.playing = true;
+      updatePlaybackState({ playing: true, positionSecs: el.currentTime }).catch(() => {});
     });
 
     el.addEventListener("pause", () => {
       this.playing = false;
+      updatePlaybackState({ playing: false, positionSecs: el.currentTime }).catch(() => {});
     });
+
+    // Register Tauri remote command listener (skipped in Playwright / non-Tauri context).
+    // Call the previous unlisten handle first to prevent duplicate listeners if
+    // bindAudio is called more than once (e.g., on component remount).
+    if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {
+      if (this.mediaRemoteUnlisten) {
+        this.mediaRemoteUnlisten();
+        this.mediaRemoteUnlisten = null;
+      }
+      listen<Record<string, unknown>>("media-remote", (event) => {
+        const e = event.payload;
+        if (e.type === "Play") this.audio?.play().catch(() => {});
+        else if (e.type === "Pause") this.audio?.pause();
+        else if (e.type === "Toggle") {
+          if (this.audio?.paused) this.audio?.play().catch(() => {});
+          else this.audio?.pause();
+        } else if (e.type === "Next") this.next();
+        else if (e.type === "Previous") this.previous();
+        else if (e.type === "Seek") this.seek(e.position as number);
+      })
+        .then((unlisten) => {
+          this.mediaRemoteUnlisten = unlisten;
+        })
+        .catch((err) => {
+          console.error("[PlayerStore] Failed to register media-remote listener:", err);
+        });
+    }
 
     el.addEventListener("error", () => {
       const code = el.error?.code;
@@ -253,6 +291,14 @@ class PlayerStore {
     if (this.currentTrack.id != null) {
       recordPlay(this.currentTrack.id).catch(() => {});
     }
+    // Update Now Playing — fire-and-forget
+    updateNowPlaying({
+      title: this.currentTrack.title ?? null,
+      artist: this.currentTrack.artist ?? this.currentTrack.album_artist ?? null,
+      album: this.currentTrack.album ?? null,
+      durationSecs: this.currentTrack.duration_secs ?? null,
+      filePath: this.currentTrack.file_path,
+    }).catch(() => {});
   }
 
   private async loadArtwork() {

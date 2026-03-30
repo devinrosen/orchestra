@@ -46,20 +46,17 @@ impl PlayerHandle {
                         let file = match File::open(&path) {
                             Ok(f) => f,
                             Err(e) => {
-                                let _ = err_tx
-                                    .send(format!("Cannot open file \"{path}\": {e}"));
+                                let _ = err_tx.send(format!("Cannot open file \"{path}\": {e}"));
                                 continue;
                             }
                         };
 
-                        let decode_result = std::panic::catch_unwind(|| {
-                            Decoder::new(BufReader::new(file))
-                        });
+                        let decode_result =
+                            std::panic::catch_unwind(|| Decoder::new(BufReader::new(file)));
                         let decoder = match decode_result {
                             Ok(Ok(d)) => d,
                             Ok(Err(e)) => {
-                                let _ = err_tx
-                                    .send(format!("Cannot decode \"{path}\": {e}"));
+                                let _ = err_tx.send(format!("Cannot decode \"{path}\": {e}"));
                                 continue;
                             }
                             Err(_) => {
@@ -72,8 +69,7 @@ impl PlayerHandle {
                         let sink = match Sink::try_new(&stream_handle) {
                             Ok(s) => s,
                             Err(e) => {
-                                let _ = err_tx
-                                    .send(format!("Cannot create sink: {e}"));
+                                let _ = err_tx.send(format!("Cannot create sink: {e}"));
                                 continue;
                             }
                         };

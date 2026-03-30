@@ -198,6 +198,8 @@ export const tauriMockScript = /* js */ `
     record_play: () => null,
     get_recently_added: () => tracks.slice(0, 5),
     get_recently_played: () => tracks.slice(0, 5),
+    update_now_playing: async () => {},
+    update_playback_state: async () => {},
   };
 
   window.__TAURI_INTERNALS__ = {

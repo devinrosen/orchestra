@@ -56,7 +56,10 @@ pub fn get_device(conn: &Connection, id: &str) -> Result<Device, AppError> {
     })
 }
 
-pub fn get_device_by_uuid(conn: &Connection, volume_uuid: &str) -> Result<Option<Device>, AppError> {
+pub fn get_device_by_uuid(
+    conn: &Connection,
+    volume_uuid: &str,
+) -> Result<Option<Device>, AppError> {
     let mut stmt = conn.prepare(
         "SELECT id, name, volume_uuid, volume_name, mount_path, capacity_bytes, music_folder, created_at, last_synced_at
          FROM devices WHERE volume_uuid = ?1",
@@ -210,9 +213,8 @@ pub fn set_selected_artists(
         "DELETE FROM device_artist_selections WHERE device_id = ?1",
         params![device_id],
     )?;
-    let mut stmt = conn.prepare(
-        "INSERT INTO device_artist_selections (device_id, artist_name) VALUES (?1, ?2)",
-    )?;
+    let mut stmt = conn
+        .prepare("INSERT INTO device_artist_selections (device_id, artist_name) VALUES (?1, ?2)")?;
     for artist in artists {
         stmt.execute(params![device_id, artist])?;
     }
@@ -221,7 +223,10 @@ pub fn set_selected_artists(
 
 // --- Album selections ---
 
-pub fn get_selected_albums(conn: &Connection, device_id: &str) -> Result<Vec<AlbumSelection>, AppError> {
+pub fn get_selected_albums(
+    conn: &Connection,
+    device_id: &str,
+) -> Result<Vec<AlbumSelection>, AppError> {
     let mut stmt = conn.prepare(
         "SELECT artist_name, album_name FROM device_album_selections WHERE device_id = ?1 ORDER BY artist_name COLLATE NOCASE, album_name COLLATE NOCASE",
     )?;

@@ -12,6 +12,7 @@ use rusqlite::{Connection, OpenFlags};
 
 mod app;
 mod db;
+mod media_session;
 mod player;
 mod ui;
 
@@ -54,7 +55,11 @@ fn main() {
     ) {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("Error: Failed to open database at {}: {}", db_path.display(), e);
+            eprintln!(
+                "Error: Failed to open database at {}: {}",
+                db_path.display(),
+                e
+            );
             std::process::exit(1);
         }
     };

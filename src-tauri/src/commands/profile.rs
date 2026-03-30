@@ -1,9 +1,11 @@
-use std::sync::Mutex;
 use rusqlite::Connection;
+use std::sync::Mutex;
 
 use orchestra_core::db::profile_repo;
 use orchestra_core::error::AppError;
-use orchestra_core::models::sync_profile::{CreateProfileRequest, SyncProfile, UpdateProfileRequest};
+use orchestra_core::models::sync_profile::{
+    CreateProfileRequest, SyncProfile, UpdateProfileRequest,
+};
 
 #[tauri::command]
 pub async fn create_profile(

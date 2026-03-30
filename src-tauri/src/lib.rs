@@ -1,9 +1,10 @@
 mod commands;
 mod device;
+mod media_session;
 mod sync;
 
-use std::sync::Mutex;
 use rusqlite::Connection;
+use std::sync::Mutex;
 use tauri::Manager;
 
 use orchestra_core::db::schema;
@@ -31,6 +32,8 @@ pub fn run() {
             let conn = init_database(app)?;
             app.manage(Mutex::new(conn));
             app.manage(Mutex::new(CancelToken::new()));
+            let media_state = media_session::MediaSessionState::init(app.handle().clone());
+            app.manage(Mutex::new(media_state));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -83,6 +86,8 @@ pub fn run() {
             commands::recent_cmd::record_play,
             commands::recent_cmd::get_recently_added,
             commands::recent_cmd::get_recently_played,
+            commands::media_cmd::update_now_playing,
+            commands::media_cmd::update_playback_state,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

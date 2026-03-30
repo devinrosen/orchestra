@@ -1,5 +1,5 @@
-use std::sync::Mutex;
 use rusqlite::{params, Connection};
+use std::sync::Mutex;
 
 use orchestra_core::error::AppError;
 
@@ -10,9 +10,7 @@ pub async fn get_setting(
 ) -> Result<Option<String>, AppError> {
     let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
     let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = ?1")?;
-    let result = stmt
-        .query_row(params![key], |row| row.get(0))
-        .ok();
+    let result = stmt.query_row(params![key], |row| row.get(0)).ok();
     Ok(result)
 }
 

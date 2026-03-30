@@ -1,15 +1,18 @@
+use rusqlite::Connection;
 use std::path::Path;
 use std::sync::Mutex;
-use rusqlite::Connection;
 use tauri::ipc::Channel;
 
-use orchestra_core::db::{device_repo, library_repo};
 use crate::device::{detect, sync as device_sync};
+use crate::sync::progress::CancelToken;
+use orchestra_core::db::{device_repo, library_repo};
 use orchestra_core::error::AppError;
-use orchestra_core::models::device::{AlbumSelection, AlbumSummary, ArtistSummary, DetectedVolume, DeviceWithStatus, RegisterDeviceRequest};
+use orchestra_core::models::device::{
+    AlbumSelection, AlbumSummary, ArtistSummary, DetectedVolume, DeviceWithStatus,
+    RegisterDeviceRequest,
+};
 use orchestra_core::models::diff::DiffResult;
 use orchestra_core::models::progress::ProgressEvent;
-use crate::sync::progress::CancelToken;
 
 #[tauri::command]
 pub async fn detect_volumes(
@@ -167,11 +170,20 @@ pub async fn compute_device_diff(
     // Get tracks for selected artists and albums
     let tracks = {
         let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
-        library_repo::get_tracks_for_device(&conn, &library_root, &selected_artists, &selected_albums)?
+        library_repo::get_tracks_for_device(
+            &conn,
+            &library_root,
+            &selected_artists,
+            &selected_albums,
+        )?
     };
 
     let (diff, new_cache) = device_sync::compute_device_diff(
-        &device_id, &tracks, &device_root, &on_progress, &hash_cache,
+        &device_id,
+        &tracks,
+        &device_root,
+        &on_progress,
+        &hash_cache,
     )?;
 
     // Persist updated cache (includes any new hashes computed during diff)

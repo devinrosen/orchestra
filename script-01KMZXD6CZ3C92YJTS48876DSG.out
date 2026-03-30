@@ -1,0 +1,38 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.41s
+`cargo metadata` exited with an error: error: could not find `Cargo.toml` in `/Users/devin/.conductor/workspaces/orchestra/feat-30-add-macos-now-playing-integration` or any parent directory
+
+This utility formats all bin and lib files of the current crate using rustfmt.
+
+Usage: cargo fmt [OPTIONS] [-- <rustfmt_options>...]
+
+Arguments:
+  [rustfmt_options]...  Options passed to rustfmt
+
+Options:
+  -q, --quiet
+          No output printed to stdout
+  -v, --verbose
+          Use verbose output
+      --version
+          Print rustfmt version and exit
+  -p, --package <package>...
+          Specify package to format
+      --manifest-path <manifest-path>
+          Specify path to Cargo.toml
+      --message-format <message-format>
+          Specify message-format: short|json|human
+      --all
+          Format all packages, and also their local path-based dependencies
+      --check
+          Run rustfmt in check mode
+  -h, --help
+          Print help
+
+$ svelte-check --tsconfig ./tsconfig.json
+Loading svelte-check in workspace: /Users/devin/.conductor/workspaces/orchestra/feat-30-add-macos-now-playing-integration
+Getting Svelte diagnostics...
+
+svelte-check found 0 errors and 0 warnings
+<<<CONDUCTOR_OUTPUT>>>
+{"markers": ["has_lint_errors"], "context": "Lint errors found"}
+<<<END_CONDUCTOR_OUTPUT>>>

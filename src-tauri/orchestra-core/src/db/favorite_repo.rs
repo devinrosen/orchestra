@@ -5,11 +5,7 @@ use crate::error::AppError;
 use crate::models::favorite::Favorite;
 use crate::models::track::Track;
 
-pub fn add_favorite(
-    conn: &Connection,
-    entity_type: &str,
-    entity_id: &str,
-) -> Result<(), AppError> {
+pub fn add_favorite(conn: &Connection, entity_type: &str, entity_id: &str) -> Result<(), AppError> {
     let now = chrono::Utc::now().timestamp();
     conn.execute(
         "INSERT OR IGNORE INTO favorites (entity_type, entity_id, created_at) VALUES (?1, ?2, ?3)",
