@@ -97,7 +97,7 @@ class PlayerStore {
     if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {
       listen<Record<string, unknown>>("media-remote", (event) => {
         const e = event.payload;
-        if (e.type === "Play") this.audio?.play();
+        if (e.type === "Play") this.audio?.play().catch(() => {});
         else if (e.type === "Pause") this.audio?.pause();
         else if (e.type === "Next") this.next();
         else if (e.type === "Previous") this.previous();

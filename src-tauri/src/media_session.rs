@@ -136,20 +136,28 @@ impl MediaSessionState {
         duration_secs: Option<f64>,
         cover_url: Option<String>,
     ) {
-        let _ = self.tx.try_send(MediaCmd::UpdateMetadata {
+        if let Err(e) = self.tx.try_send(MediaCmd::UpdateMetadata {
             title,
             artist,
             album,
             duration_secs,
             cover_url,
-        });
+        }) {
+            if matches!(e, mpsc::TrySendError::Disconnected(_)) {
+                eprintln!("[media_session] update_metadata: channel disconnected — media session thread has exited");
+            }
+        }
     }
 
     pub fn update_playback(&self, playing: bool, position_secs: f64) {
-        let _ = self.tx.try_send(MediaCmd::UpdatePlayback {
+        if let Err(e) = self.tx.try_send(MediaCmd::UpdatePlayback {
             playing,
             position_secs,
-        });
+        }) {
+            if matches!(e, mpsc::TrySendError::Disconnected(_)) {
+                eprintln!("[media_session] update_playback: channel disconnected — media session thread has exited");
+            }
+        }
     }
 }
 
