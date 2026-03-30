@@ -44,8 +44,7 @@ pub async fn update_now_playing(
             Ok::<(), AppError>(())
         })
         .await
-        .map_err(|e| AppError::General(format!("update_now_playing: path check task failed: {e}")))?
-        .map_err(|e| e)?;
+        .map_err(|e| AppError::General(format!("update_now_playing: path check task failed: {e}")))??;
     }
 
     let file_path_clone = file_path.clone();
