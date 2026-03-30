@@ -20,7 +20,7 @@ workflow ticket-to-pr {
     }
   }
 
-  call plan { output = "task-plan" }
+  call plan
 
   call implement {
     retries = 2
