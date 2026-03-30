@@ -82,6 +82,7 @@ pub fn apply_pattern(pattern: &str, track: &Track) -> String {
 
 /// Strips/replaces filesystem-invalid characters from a single path component value.
 /// Replaces `\ / : * ? " < > |` with `_`, trims whitespace, truncates to 200 chars.
+/// All-dot components (`.`, `..`, `...`) are replaced with `_` to prevent path traversal.
 pub fn sanitize_path_component(s: &str) -> String {
     let sanitized: String = s
         .chars()
@@ -92,11 +93,49 @@ pub fn sanitize_path_component(s: &str) -> String {
         .collect();
 
     let trimmed = sanitized.trim();
+
+    // Prevent path traversal: all-dot components (e.g. "..") are replaced with "_"
+    if !trimmed.is_empty() && trimmed.chars().all(|c| c == '.') {
+        return "_".to_string();
+    }
+
     if trimmed.len() > 200 {
         trimmed[..200].to_string()
     } else {
         trimmed.to_string()
     }
+}
+
+/// Moves a file from `src` to `dst`, creating parent directories as needed.
+///
+/// Tries an atomic rename first (fast path, same filesystem). Falls back to
+/// copy-then-rename for cross-device moves using the safe-write pattern
+/// (copy → fsync → rename → remove source). Temp files are cleaned up on failure.
+pub fn apply_file_move(src: &std::path::Path, dst: &std::path::Path) -> Result<(), std::io::Error> {
+    // Ensure destination directory exists
+    if let Some(parent) = dst.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+
+    // Attempt atomic rename (fast path, same filesystem)
+    if std::fs::rename(src, dst).is_ok() {
+        return Ok(());
+    }
+
+    // Copy-then-rename fallback (handles cross-device moves)
+    let tmp = dst.with_extension("tmp_organize");
+    std::fs::copy(src, &tmp)?;
+    {
+        let f = std::fs::File::open(&tmp)?;
+        f.sync_all()?;
+    }
+    if let Err(e) = std::fs::rename(&tmp, dst) {
+        let _ = std::fs::remove_file(&tmp);
+        return Err(e);
+    }
+    std::fs::remove_file(src)?;
+
+    Ok(())
 }
 
 #[cfg(test)]

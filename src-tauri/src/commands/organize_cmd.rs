@@ -33,7 +33,15 @@ pub async fn preview_organize(
     // First pass: compute all proposed paths
     let mut items: Vec<OrganizePreviewItem> = Vec::with_capacity(tracks.len());
     for track in &tracks {
-        let track_id = track.id.unwrap_or(0);
+        let track_id = match track.id {
+            Some(id) => id,
+            None => {
+                return Err(AppError::General(format!(
+                    "track has no database id: {}",
+                    track.file_path
+                )))
+            }
+        };
         let proposed = organizer::apply_pattern(&pattern, track);
         proposed_map
             .entry(proposed.clone())
@@ -108,14 +116,40 @@ pub async fn apply_organize(
     let start = std::time::Instant::now();
     let root = library_root.trim_end_matches('/');
 
+    let root_path = std::path::Path::new(root);
+
     for (i, item) in items.iter().enumerate() {
         if flag.load(Ordering::Relaxed) {
             break;
         }
 
+        // Security: verify current_file_path is within library_root
+        let src = std::path::Path::new(&item.current_file_path);
+        if !src.starts_with(root_path) {
+            errors.push(format!(
+                "{}: path is outside library root",
+                item.current_file_path
+            ));
+            skipped += 1;
+            continue;
+        }
+
+        // Security: verify proposed_relative_path contains no parent-dir components
+        let proposed_path = std::path::Path::new(&item.proposed_relative_path);
+        if proposed_path
+            .components()
+            .any(|c| c == std::path::Component::ParentDir)
+        {
+            errors.push(format!(
+                "{}: proposed path contains path traversal",
+                item.proposed_relative_path
+            ));
+            skipped += 1;
+            continue;
+        }
+
         let new_file_path = format!("{}/{}", root, item.proposed_relative_path);
         let new_path = std::path::Path::new(&new_file_path);
-        let src = std::path::Path::new(&item.current_file_path);
 
         // Skip if source equals destination (already correct)
         if item.current_file_path == new_file_path {
@@ -123,16 +157,7 @@ pub async fn apply_organize(
             continue;
         }
 
-        // Ensure destination directory exists
-        if let Some(parent) = new_path.parent() {
-            if let Err(e) = std::fs::create_dir_all(parent) {
-                errors.push(format!("{}: {}", item.current_file_path, e));
-                skipped += 1;
-                continue;
-            }
-        }
-
-        match try_move_file(src, new_path) {
+        match organizer::apply_file_move(src, new_path) {
             Ok(()) => {
                 moved += 1;
                 db_updates.push((
@@ -170,23 +195,3 @@ pub async fn apply_organize(
     })
 }
 
-/// Tries an atomic rename first (same filesystem); falls back to copy-then-rename for
-/// cross-device moves, using the safe-write pattern (copy → fsync → rename → remove source).
-fn try_move_file(src: &std::path::Path, dst: &std::path::Path) -> Result<(), std::io::Error> {
-    // Attempt atomic rename (fast path, same filesystem)
-    if std::fs::rename(src, dst).is_ok() {
-        return Ok(());
-    }
-
-    // Copy-then-rename fallback (handles cross-device moves)
-    let tmp = dst.with_extension("tmp_organize");
-    std::fs::copy(src, &tmp)?;
-    {
-        let f = std::fs::File::open(&tmp)?;
-        f.sync_all()?;
-    }
-    std::fs::rename(&tmp, dst)?;
-    std::fs::remove_file(src)?;
-
-    Ok(())
-}

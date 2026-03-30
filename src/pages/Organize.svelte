@@ -11,28 +11,7 @@
 
   function handleApply(excludedIds: Set<number>) {
     if (!libraryStore.libraryRoot) return;
-    // Filter out excluded items from the preview before applying
-    if (organizeStore.preview) {
-      const filteredItems = organizeStore.preview.items.filter(
-        (item) => item.status.type === "Ok" && !excludedIds.has(item.track_id),
-      );
-      if (filteredItems.length === 0) return;
-      // Temporarily replace preview items to only apply non-excluded Ok items
-      const originalItems = organizeStore.preview.items;
-      organizeStore.preview = {
-        ...organizeStore.preview,
-        items: filteredItems,
-      };
-      organizeStore.applyOrganize(libraryStore.libraryRoot).then(() => {
-        // Restore original preview so user can see full list with results
-        if (organizeStore.preview) {
-          organizeStore.preview = {
-            ...organizeStore.preview,
-            items: originalItems,
-          };
-        }
-      });
-    }
+    organizeStore.applyOrganize(libraryStore.libraryRoot, excludedIds);
   }
 </script>
 

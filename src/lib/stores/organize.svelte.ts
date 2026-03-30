@@ -38,11 +38,13 @@ class OrganizeStore {
     }
   }
 
-  async applyOrganize(libraryRoot: string) {
+  async applyOrganize(libraryRoot: string, excludedIds?: Set<number>) {
     if (!this.preview) return;
 
     const itemsToMove = this.preview.items.filter(
-      (item) => item.status.type === "Ok",
+      (item) =>
+        item.status.type === "Ok" &&
+        (!excludedIds || !excludedIds.has(item.track_id)),
     );
     if (itemsToMove.length === 0) return;
 
