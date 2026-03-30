@@ -193,7 +193,13 @@ pub async fn apply_organize(
     if !successful_moves.is_empty() {
         let updates: Vec<(i64, &str, &str)> = successful_moves
             .iter()
-            .map(|m| (m.track_id, m.new_file_path.as_str(), m.proposed_relative_path.as_str()))
+            .map(|m| {
+                (
+                    m.track_id,
+                    m.new_file_path.as_str(),
+                    m.proposed_relative_path.as_str(),
+                )
+            })
             .collect();
 
         match db.lock() {
@@ -248,10 +254,7 @@ pub async fn apply_organize(
                                         "{}: db update failed AND rollback failed — \
                                          file is at {} but DB still points to original path. \
                                          DB error: {}; rollback error: {}",
-                                        m.current_file_path,
-                                        m.new_file_path,
-                                        db_err,
-                                        rollback_err
+                                        m.current_file_path, m.new_file_path, db_err, rollback_err
                                     ));
                                 }
                             }
