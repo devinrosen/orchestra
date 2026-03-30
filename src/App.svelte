@@ -5,6 +5,7 @@
   import SyncProfiles from "./pages/SyncProfiles.svelte";
   import SyncPreview from "./pages/SyncPreview.svelte";
   import DeviceSync from "./pages/DeviceSync.svelte";
+  import Organize from "./pages/Organize.svelte";
   import Settings from "./pages/Settings.svelte";
   import Statistics from "./pages/Statistics.svelte";
   import Playlists from "./pages/Playlists.svelte";
@@ -22,7 +23,7 @@
   import { favoritesStore } from "./lib/stores/favorites.svelte";
   import { shortcutsStore } from "./lib/stores/shortcuts.svelte";
 
-  type Page = "library" | "recent" | "favorites" | "statistics" | "playlists" | "profiles" | "sync-preview" | "devices" | "settings";
+  type Page = "library" | "recent" | "favorites" | "statistics" | "playlists" | "profiles" | "sync-preview" | "devices" | "organize" | "settings";
 
   let currentPage = $state<Page>("library");
   let pageData = $state<Record<string, unknown>>({});
@@ -140,6 +141,7 @@
     { page: "playlists",  label: "Playlists",     title: "Playlists (3)" },
     { page: "profiles",   label: "Sync Profiles", title: "Sync Profiles (4)" },
     { page: "devices",    label: "Devices",       title: "Devices (5)" },
+    { page: "organize",   label: "Organize",      title: "Organize" },
     { page: "settings",   label: "Settings",      title: "Settings (6)" },
   ];
 </script>
@@ -181,6 +183,8 @@
       />
     {:else if currentPage === "devices"}
       <DeviceSync />
+    {:else if currentPage === "organize"}
+      <Organize />
     {:else if currentPage === "settings"}
       <Settings />
     {/if}

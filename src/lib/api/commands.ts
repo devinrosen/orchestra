@@ -27,6 +27,9 @@ import type {
   RemoveTracksRequest,
   ReorderTracksRequest,
   Favorite,
+  OrganizePreviewResult,
+  OrganizeApplyItem,
+  OrganizeApplyResult,
 } from "./types";
 
 export function scanDirectory(
@@ -273,3 +276,19 @@ export function getRecentlyPlayed(limit: number): Promise<Track[]> {
   return invoke("get_recently_played", { limit });
 }
 
+export function previewOrganize(
+  libraryRoot: string,
+  pattern: string,
+): Promise<OrganizePreviewResult> {
+  return invoke("preview_organize", { libraryRoot, pattern });
+}
+
+export function applyOrganize(
+  libraryRoot: string,
+  items: OrganizeApplyItem[],
+  onProgress: (event: ProgressEvent) => void,
+): Promise<OrganizeApplyResult> {
+  const channel = new Channel<ProgressEvent>();
+  channel.onmessage = onProgress;
+  return invoke("apply_organize", { libraryRoot, items, onProgress: channel });
+}

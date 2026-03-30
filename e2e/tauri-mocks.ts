@@ -198,6 +198,19 @@ export const tauriMockScript = /* js */ `
     record_play: () => null,
     get_recently_added: () => tracks.slice(0, 5),
     get_recently_played: () => tracks.slice(0, 5),
+    preview_organize: () => ({
+      items: tracks.slice(0, 3).map((t, i) => ({
+        track_id: t.id,
+        current_relative_path: t.relative_path,
+        proposed_relative_path: (t.album_artist || t.artist || "Unknown Artist") + "/" + (t.album || "Unknown Album") + "/" + String(t.track_number || 0).padStart(2, "0") + " - " + (t.title || "Unknown") + ".flac",
+        status: i === 0 ? { type: "Ok" } : i === 1 ? { type: "AlreadyCorrect" } : { type: "Ok" },
+      })),
+      total: 3,
+      already_correct: 1,
+      collisions: 0,
+      errors: 0,
+    }),
+    apply_organize: () => ({ moved: 2, skipped: 1, errors: [] }),
   };
 
   window.__TAURI_INTERNALS__ = {

@@ -222,7 +222,9 @@ export type ProgressEvent =
   | { type: "sync_complete"; files_synced: number; duration_ms: number }
   | { type: "sync_error"; file: string; error: string }
   | { type: "hash_started"; total: number }
-  | { type: "hash_progress"; files_hashed: number; total_files: number; current_file: string };
+  | { type: "hash_progress"; files_hashed: number; total_files: number; current_file: string }
+  | { type: "organize_progress"; completed: number; total: number; current_file: string }
+  | { type: "organize_complete"; moved: number; duration_ms: number };
 
 export interface FormatStat {
   format: string;
@@ -300,4 +302,37 @@ export interface DuplicateResult {
   groups: DuplicateGroup[];
   total_duplicate_tracks: number;
   total_wasted_bytes: number;
+}
+
+export type OrganizeItemStatus =
+  | { type: "Ok" }
+  | { type: "AlreadyCorrect" }
+  | { type: "Collision"; conflicting_track_id: number | null }
+  | { type: "Error"; reason: string };
+
+export interface OrganizePreviewItem {
+  track_id: number;
+  current_relative_path: string;
+  proposed_relative_path: string;
+  status: OrganizeItemStatus;
+}
+
+export interface OrganizePreviewResult {
+  items: OrganizePreviewItem[];
+  total: number;
+  already_correct: number;
+  collisions: number;
+  errors: number;
+}
+
+export interface OrganizeApplyItem {
+  track_id: number;
+  current_file_path: string;
+  proposed_relative_path: string;
+}
+
+export interface OrganizeApplyResult {
+  moved: number;
+  skipped: number;
+  errors: string[];
 }

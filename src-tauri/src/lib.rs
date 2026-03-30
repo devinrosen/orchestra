@@ -83,6 +83,8 @@ pub fn run() {
             commands::recent_cmd::record_play,
             commands::recent_cmd::get_recently_added,
             commands::recent_cmd::get_recently_played,
+            commands::organize_cmd::preview_organize,
+            commands::organize_cmd::apply_organize,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
