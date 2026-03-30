@@ -60,13 +60,13 @@ pub(crate) fn check_path_in_root(library_root: &str, file_path: &str) -> Result<
         .unwrap_or_else(|_| std::path::PathBuf::from(library_root));
     let file_canonical = std::fs::canonicalize(file_path).map_err(|e| {
         AppError::General(format!(
-            "update_now_playing: cannot canonicalize '{}': {e}",
+            "path check: cannot canonicalize '{}': {e}",
             file_path
         ))
     })?;
     if !file_canonical.starts_with(&root_canonical) {
         return Err(AppError::General(
-            "update_now_playing: file path is outside library root".to_string(),
+            "path check: file path is outside library root".to_string(),
         ));
     }
     Ok(())
