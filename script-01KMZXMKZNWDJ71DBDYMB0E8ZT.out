@@ -1,9 +1,0 @@
-remote: 
-remote: Create a pull request for 'feat/30-add-macos-now-playing-integration' on GitHub by visiting:        
-remote:      https://github.com/devinrosen/orchestra/pull/new/feat/30-add-macos-now-playing-integration        
-remote: 
-To github.com:devinrosen/orchestra.git
- * [new branch]      HEAD -> feat/30-add-macos-now-playing-integration
-branch 'feat/30-add-macos-now-playing-integration' set up to track 'origin/feat/30-add-macos-now-playing-integration'.
-Warning: 10 uncommitted changes
-pull request create failed: GraphQL: Resource not accessible by integration (createPullRequest)
