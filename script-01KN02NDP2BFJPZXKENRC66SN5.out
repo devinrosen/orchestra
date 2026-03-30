@@ -1,9 +1,0 @@
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.16s
-$ svelte-check --tsconfig ./tsconfig.json
-Loading svelte-check in workspace: /Users/devin/.conductor/workspaces/orchestra/feat-33-blocking-file-i-o-src-tauri-src
-Getting Svelte diagnostics...
-
-svelte-check found 0 errors and 0 warnings
-<<<CONDUCTOR_OUTPUT>>>
-{"markers": [], "context": "All lint checks passed"}
-<<<END_CONDUCTOR_OUTPUT>>>

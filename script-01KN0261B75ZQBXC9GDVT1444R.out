@@ -1,3 +1,0 @@
-<<<CONDUCTOR_OUTPUT>>>
-{"markers": ["has_code_changes"], "context": "Found 1 code file(s) in diff: src-tauri/src/commands/media_cmd.rs"}
-<<<END_CONDUCTOR_OUTPUT>>>
