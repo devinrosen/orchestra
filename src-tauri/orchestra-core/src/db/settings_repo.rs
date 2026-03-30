@@ -82,4 +82,18 @@ mod tests {
         let all = get_all_settings(&conn).unwrap();
         assert!(all.is_empty());
     }
+
+    #[test]
+    fn test_db_error_propagates_as_err() {
+        // Open a connection without running migrations so the settings table
+        // does not exist — any query against it should produce a real DB error,
+        // which get_setting must propagate as Err, not absorb as Ok(None).
+        let conn = Connection::open_in_memory().unwrap();
+        let result = get_setting(&conn, "library_root");
+        assert!(
+            result.is_err(),
+            "expected Err when settings table is absent, got Ok({:?})",
+            result
+        );
+    }
 }
