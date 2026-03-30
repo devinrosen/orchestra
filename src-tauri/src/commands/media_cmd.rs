@@ -106,6 +106,22 @@ mod path_traversal_tests {
     }
 
     #[test]
+    fn nonexistent_library_root_returns_diagnostic_error() {
+        let file = "/tmp/some_track.flac";
+        let err =
+            check_path_in_root("/nonexistent/library/root", file).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("cannot canonicalize library root"),
+            "error should mention library root canonicalization: {msg}"
+        );
+        assert!(
+            msg.contains("/nonexistent/library/root"),
+            "error should include the library root path: {msg}"
+        );
+    }
+
+    #[test]
     fn valid_path_inside_root_passes() {
         let tmp = TempDir::new().unwrap();
         let file = make_file(&tmp, "track.flac");
