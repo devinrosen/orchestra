@@ -16,7 +16,7 @@ pub async fn update_now_playing(
     let cover_url = media_session::extract_cover(&file_path);
     let s = session
         .lock()
-        .map_err(|e| AppError::General(e.to_string()))?;
+        .map_err(|e| AppError::General(format!("update_now_playing: media session lock poisoned: {e}")))?;
     s.update_metadata(title, artist, album, duration_secs, cover_url);
     Ok(())
 }
@@ -29,7 +29,7 @@ pub async fn update_playback_state(
 ) -> Result<(), AppError> {
     let s = session
         .lock()
-        .map_err(|e| AppError::General(e.to_string()))?;
+        .map_err(|e| AppError::General(format!("update_playback_state: media session lock poisoned: {e}")))?;
     s.update_playback(playing, position_secs);
     Ok(())
 }
