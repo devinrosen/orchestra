@@ -56,8 +56,12 @@ pub async fn update_now_playing(
 /// Returns `Ok` if `file_path` canonicalizes to a path inside `library_root`.
 /// Returns `Err` if the path cannot be resolved or falls outside the root.
 pub(crate) fn check_path_in_root(library_root: &str, file_path: &str) -> Result<(), AppError> {
-    let root_canonical = std::fs::canonicalize(library_root)
-        .unwrap_or_else(|_| std::path::PathBuf::from(library_root));
+    let root_canonical = std::fs::canonicalize(library_root).map_err(|e| {
+        AppError::General(format!(
+            "path check: cannot canonicalize library root '{}': {e}",
+            library_root
+        ))
+    })?;
     let file_canonical = std::fs::canonicalize(file_path).map_err(|e| {
         AppError::General(format!(
             "path check: cannot canonicalize '{}': {e}",
@@ -65,9 +69,11 @@ pub(crate) fn check_path_in_root(library_root: &str, file_path: &str) -> Result<
         ))
     })?;
     if !file_canonical.starts_with(&root_canonical) {
-        return Err(AppError::General(
-            "path check: file path is outside library root".to_string(),
-        ));
+        return Err(AppError::General(format!(
+            "path check: file path '{}' is outside library root '{}'",
+            file_canonical.display(),
+            root_canonical.display()
+        )));
     }
     Ok(())
 }
@@ -112,9 +118,14 @@ mod path_traversal_tests {
         let outside = TempDir::new().unwrap();
         let file = make_file(&outside, "evil.flac");
         let err = check_path_in_root(root.path().to_str().unwrap(), &file).unwrap_err();
+        let msg = err.to_string();
         assert!(
-            err.to_string().contains("outside library root"),
+            msg.contains("outside library root"),
             "unexpected error: {err}"
+        );
+        assert!(
+            msg.contains("evil.flac"),
+            "error should include the rejected file path: {msg}"
         );
     }
 
@@ -148,9 +159,14 @@ mod path_traversal_tests {
         std::os::unix::fs::symlink(&real_file, &link).unwrap();
         let err =
             check_path_in_root(root.path().to_str().unwrap(), link.to_str().unwrap()).unwrap_err();
+        let msg = err.to_string();
         assert!(
-            err.to_string().contains("outside library root"),
+            msg.contains("outside library root"),
             "symlink traversal should be rejected: {err}"
+        );
+        assert!(
+            msg.contains("secret.flac"),
+            "error should include the resolved symlink target: {msg}"
         );
     }
 }
