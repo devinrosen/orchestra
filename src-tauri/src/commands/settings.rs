@@ -1,6 +1,7 @@
-use rusqlite::{params, Connection};
+use rusqlite::Connection;
 use std::sync::Mutex;
 
+use orchestra_core::db::settings_repo;
 use orchestra_core::error::AppError;
 
 #[tauri::command]
@@ -9,9 +10,7 @@ pub async fn get_setting(
     key: String,
 ) -> Result<Option<String>, AppError> {
     let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
-    let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = ?1")?;
-    let result = stmt.query_row(params![key], |row| row.get(0)).ok();
-    Ok(result)
+    settings_repo::get_setting(&conn, &key)
 }
 
 #[tauri::command]
@@ -21,12 +20,7 @@ pub async fn set_setting(
     value: String,
 ) -> Result<(), AppError> {
     let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
-    conn.execute(
-        "INSERT INTO settings (key, value) VALUES (?1, ?2)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        params![key, value],
-    )?;
-    Ok(())
+    settings_repo::set_setting(&conn, &key, &value)
 }
 
 #[tauri::command]
@@ -34,17 +28,13 @@ pub async fn get_all_settings(
     db: tauri::State<'_, Mutex<Connection>>,
 ) -> Result<Vec<(String, String)>, AppError> {
     let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
-    let mut stmt = conn.prepare("SELECT key, value FROM settings ORDER BY key")?;
-    let settings = stmt
-        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
-        .collect::<Result<Vec<_>, _>>()?;
-    Ok(settings)
+    settings_repo::get_all_settings(&conn)
 }
 
 #[cfg(test)]
 mod tests {
     use orchestra_core::db::schema;
-    use rusqlite::{params, Connection};
+    use rusqlite::Connection;
 
     fn setup_db() -> Connection {
         let conn = Connection::open_in_memory().unwrap();
@@ -53,29 +43,15 @@ mod tests {
     }
 
     fn db_get(conn: &Connection, key: &str) -> Option<String> {
-        conn.prepare("SELECT value FROM settings WHERE key = ?1")
-            .ok()?
-            .query_row(params![key], |row| row.get(0))
-            .ok()
+        orchestra_core::db::settings_repo::get_setting(conn, key).unwrap()
     }
 
     fn db_set(conn: &Connection, key: &str, value: &str) {
-        conn.execute(
-            "INSERT INTO settings (key, value) VALUES (?1, ?2)
-             ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            params![key, value],
-        )
-        .unwrap();
+        orchestra_core::db::settings_repo::set_setting(conn, key, value).unwrap();
     }
 
     fn db_get_all(conn: &Connection) -> Vec<(String, String)> {
-        let mut stmt = conn
-            .prepare("SELECT key, value FROM settings ORDER BY key")
-            .unwrap();
-        stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
-            .unwrap()
-            .collect::<Result<Vec<_>, _>>()
-            .unwrap()
+        orchestra_core::db::settings_repo::get_all_settings(conn).unwrap()
     }
 
     #[test]

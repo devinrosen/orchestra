@@ -5,4 +5,5 @@ pub mod playlist_repo;
 pub mod profile_repo;
 pub mod recent_repo;
 pub mod schema;
+pub mod settings_repo;
 pub mod sync_state_repo;

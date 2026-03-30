@@ -1,9 +1,10 @@
 use std::sync::Mutex;
 use std::time::Duration;
 
-use rusqlite::{params, Connection};
+use rusqlite::Connection;
 
 use orchestra_core::cover;
+use orchestra_core::db::settings_repo;
 use orchestra_core::error::AppError;
 
 use crate::media_session::MediaSessionState;
@@ -23,8 +24,7 @@ pub async fn update_now_playing(
         let conn = db
             .lock()
             .map_err(|e| AppError::General(format!("update_now_playing: db lock poisoned: {e}")))?;
-        let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = 'library_root'")?;
-        stmt.query_row(params![], |row| row.get(0)).ok()
+        settings_repo::get_setting(&conn, "library_root")?
     };
 
     let root = library_root.ok_or_else(|| {
