@@ -135,3 +135,99 @@ pub fn remove_empty_parents(dir: &Path) -> Result<(), std::io::Error> {
     }
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_copy_file_safe_creates_destination() {
+        let src_dir = TempDir::new().unwrap();
+        let dst_dir = TempDir::new().unwrap();
+
+        let src = src_dir.path().join("track.flac");
+        let dst = dst_dir.path().join("track.flac");
+
+        fs::write(&src, b"audio data").unwrap();
+        copy_file_safe(&src, &dst).unwrap();
+
+        assert!(dst.exists());
+        assert_eq!(fs::read(&dst).unwrap(), b"audio data");
+    }
+
+    #[test]
+    fn test_copy_file_safe_creates_intermediate_directories() {
+        let src_dir = TempDir::new().unwrap();
+        let dst_dir = TempDir::new().unwrap();
+
+        let src = src_dir.path().join("track.flac");
+        let dst = dst_dir.path().join("artist/album/track.flac");
+
+        fs::write(&src, b"audio data").unwrap();
+        copy_file_safe(&src, &dst).unwrap();
+
+        assert!(dst.exists());
+        assert!(dst.parent().unwrap().is_dir());
+    }
+
+    #[test]
+    fn test_copy_file_safe_preserves_source_mtime() {
+        let src_dir = TempDir::new().unwrap();
+        let dst_dir = TempDir::new().unwrap();
+
+        let src = src_dir.path().join("track.flac");
+        let dst = dst_dir.path().join("track.flac");
+
+        fs::write(&src, b"audio data").unwrap();
+
+        let mtime =
+            std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(1_700_000_000);
+        {
+            let src_file = fs::OpenOptions::new().write(true).open(&src).unwrap();
+            src_file.set_modified(mtime).unwrap();
+        }
+
+        copy_file_safe(&src, &dst).unwrap();
+
+        let src_meta = fs::metadata(&src).unwrap();
+        let dst_meta = fs::metadata(&dst).unwrap();
+
+        let src_mtime = src_meta.modified().unwrap();
+        let dst_mtime = dst_meta.modified().unwrap();
+
+        let diff = if src_mtime >= dst_mtime {
+            src_mtime.duration_since(dst_mtime).unwrap_or_default()
+        } else {
+            dst_mtime.duration_since(src_mtime).unwrap_or_default()
+        };
+        assert!(diff.as_secs() <= 1, "mtime difference too large: {:?}", diff);
+    }
+
+    #[test]
+    fn test_remove_empty_parents_cleans_up_empty_dirs() {
+        let base = TempDir::new().unwrap();
+        let nested = base.path().join("a/b/c");
+        fs::create_dir_all(&nested).unwrap();
+
+        remove_empty_parents(&nested).unwrap();
+
+        assert!(!base.path().join("a").exists());
+    }
+
+    #[test]
+    fn test_remove_empty_parents_stops_at_non_empty_ancestor() {
+        let base = TempDir::new().unwrap();
+        let keep_dir = base.path().join("a");
+        let empty = base.path().join("a/b/c");
+
+        fs::create_dir_all(&empty).unwrap();
+        fs::write(keep_dir.join("keep.txt"), b"data").unwrap();
+
+        remove_empty_parents(&empty).unwrap();
+
+        assert!(keep_dir.exists(), "non-empty ancestor should survive");
+        assert!(!base.path().join("a/b").exists(), "empty child should be removed");
+    }
+}

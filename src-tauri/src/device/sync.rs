@@ -277,6 +277,42 @@ pub fn compute_device_diff(
     ))
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_normalize_path_lowercase() {
+        let result = normalize_path("Artist/Album/TRACK.FLAC");
+        assert_eq!(result, "artist/album/track.flac");
+    }
+
+    #[test]
+    fn test_normalize_path_already_lowercase() {
+        let result = normalize_path("artist/album/track.flac");
+        assert_eq!(result, "artist/album/track.flac");
+    }
+
+    #[test]
+    fn test_normalize_path_nfc() {
+        // NFD encoded 'é': e + combining acute accent (U+0301)
+        let nfd_e = "e\u{0301}";
+        let result = normalize_path(nfd_e);
+        // NFC 'é' is a single codepoint U+00E9, lowercased
+        assert_eq!(result, "\u{00e9}");
+    }
+
+    #[test]
+    fn test_normalize_path_mixed_case_and_extension() {
+        let result = normalize_path("ARTIST/Álbum/Track 01.FLAC");
+        assert!(
+            result.chars().all(|c| !c.is_uppercase()),
+            "result should be all lowercase: {}",
+            result
+        );
+    }
+}
+
 /// Returns (files_synced, post_sync_cache) — caller should save the cache to DB.
 pub fn execute_device_sync(
     diff: &DiffResult,

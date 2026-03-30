@@ -77,3 +77,29 @@ pub fn extract_metadata(path: &Path, library_root: &Path) -> Result<Track, AppEr
         scanned_at: 0, // set by upsert_track to the current timestamp
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempfile::Builder;
+
+    #[test]
+    fn test_extract_nonexistent_file_returns_error() {
+        let path = std::path::PathBuf::from("/nonexistent/path/track.flac");
+        let library_root = std::path::PathBuf::from("/nonexistent");
+        let result = extract_metadata(&path, &library_root);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_extract_non_audio_file_returns_error() {
+        let mut file = Builder::new().suffix(".txt").tempfile().unwrap();
+        file.write_all(b"this is not audio data").unwrap();
+        file.flush().unwrap();
+
+        let parent = file.path().parent().unwrap().to_path_buf();
+        let result = extract_metadata(file.path(), &parent);
+        assert!(result.is_err());
+    }
+}
