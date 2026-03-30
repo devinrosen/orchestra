@@ -27,16 +27,25 @@ pub async fn update_now_playing(
     };
 
     if let Some(root) = library_root {
-        let root_canonical =
-            std::fs::canonicalize(&root).unwrap_or_else(|_| std::path::PathBuf::from(&root));
-        let file_canonical = std::fs::canonicalize(&file_path).map_err(|_| {
-            AppError::General("update_now_playing: invalid or inaccessible file path".to_string())
-        })?;
-        if !file_canonical.starts_with(&root_canonical) {
-            return Err(AppError::General(
-                "update_now_playing: file path is outside library root".to_string(),
-            ));
-        }
+        let file_path_for_check = file_path.clone();
+        tauri::async_runtime::spawn_blocking(move || {
+            let root_canonical =
+                std::fs::canonicalize(&root).unwrap_or_else(|_| std::path::PathBuf::from(&root));
+            let file_canonical = std::fs::canonicalize(&file_path_for_check).map_err(|_| {
+                AppError::General(
+                    "update_now_playing: invalid or inaccessible file path".to_string(),
+                )
+            })?;
+            if !file_canonical.starts_with(&root_canonical) {
+                return Err(AppError::General(
+                    "update_now_playing: file path is outside library root".to_string(),
+                ));
+            }
+            Ok::<(), AppError>(())
+        })
+        .await
+        .map_err(|e| AppError::General(format!("update_now_playing: path check task failed: {e}")))?
+        .map_err(|e| e)?;
     }
 
     let file_path_clone = file_path.clone();
