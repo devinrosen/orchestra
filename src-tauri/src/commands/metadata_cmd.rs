@@ -46,7 +46,10 @@ pub async fn update_track_metadata(
                 |row| row.get::<_, String>(0),
             )
             .map_err(|e| {
-                AppError::General(format!("Track not found in DB: {}: {}", update.file_path, e))
+                AppError::General(format!(
+                    "Track not found in DB: {}: {}",
+                    update.file_path, e
+                ))
             })?;
 
         let library_root = Path::new(&existing);
