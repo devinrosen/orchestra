@@ -104,10 +104,10 @@ class PlayerStore {
       }
       listen<Record<string, unknown>>("media-remote", (event) => {
         const e = event.payload;
-        if (e.type === "Play") this.audio?.play().catch(() => {});
+        if (e.type === "Play") this.safePlay();
         else if (e.type === "Pause") this.audio?.pause();
         else if (e.type === "Toggle") {
-          if (this.audio?.paused) this.audio?.play().catch(() => {});
+          if (this.audio?.paused) this.safePlay();
           else this.audio?.pause();
         } else if (e.type === "Next") this.next();
         else if (e.type === "Previous") this.previous();
@@ -170,7 +170,7 @@ class PlayerStore {
     if (this.playing) {
       this.audio.pause();
     } else {
-      this.audio.play();
+      this.safePlay();
     }
   }
 
@@ -267,6 +267,12 @@ class PlayerStore {
     }
   }
 
+  private safePlay() {
+    this.audio?.play().catch((err) => {
+      if ((err as DOMException).name !== "AbortError") this.error = String(err);
+    });
+  }
+
   private handleTrackEnded() {
     if (this.hasNext) {
       this.queueIndex++;
@@ -285,7 +291,7 @@ class PlayerStore {
     this.error = null;
     const src = convertFileSrc(this.currentTrack.file_path);
     this.audio.src = src;
-    this.audio.play();
+    this.safePlay();
     this.loadArtwork();
     // Record play — fire-and-forget; non-critical if it fails
     if (this.currentTrack.id != null) {
