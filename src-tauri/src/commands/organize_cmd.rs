@@ -111,7 +111,6 @@ pub async fn apply_organize(
     let mut moved = 0usize;
     let mut skipped = 0usize;
     let mut errors: Vec<String> = Vec::new();
-    let mut db_updates: Vec<(i64, String, String)> = Vec::new();
 
     let start = std::time::Instant::now();
     let root = library_root.trim_end_matches('/');
@@ -159,12 +158,30 @@ pub async fn apply_organize(
 
         match organizer::apply_file_move(src, new_path) {
             Ok(()) => {
-                moved += 1;
-                db_updates.push((
+                // Update DB immediately after each successful move so that files on disk
+                // and DB records are always consistent, even if a later move or update fails.
+                let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
+                match organization_repo::update_track_paths(
+                    &conn,
                     item.track_id,
-                    new_file_path,
-                    item.proposed_relative_path.clone(),
-                ));
+                    &new_file_path,
+                    &item.proposed_relative_path,
+                ) {
+                    Ok(()) => {
+                        moved += 1;
+                    }
+                    Err(e) => {
+                        // DB update failed — attempt to reverse the file move so disk and
+                        // DB remain consistent (DB still has the old path).
+                        drop(conn);
+                        let _ = organizer::apply_file_move(new_path, src);
+                        errors.push(format!(
+                            "{}: db update failed: {}",
+                            item.current_file_path, e
+                        ));
+                        skipped += 1;
+                    }
+                }
             }
             Err(e) => {
                 errors.push(format!("{}: {}", item.current_file_path, e));
@@ -177,12 +194,6 @@ pub async fn apply_organize(
             total,
             current_file: item.proposed_relative_path.clone(),
         });
-    }
-
-    // Batch-update DB paths in a single transaction
-    if !db_updates.is_empty() {
-        let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
-        organization_repo::bulk_update_track_paths(&conn, &db_updates)?;
     }
 
     let duration_ms = start.elapsed().as_millis() as u64;

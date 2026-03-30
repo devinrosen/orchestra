@@ -99,8 +99,9 @@ pub fn sanitize_path_component(s: &str) -> String {
         return "_".to_string();
     }
 
-    if trimmed.len() > 200 {
-        trimmed[..200].to_string()
+    // Truncate by character count to avoid panicking on multi-byte Unicode boundaries
+    if trimmed.chars().count() > 200 {
+        trimmed.chars().take(200).collect()
     } else {
         trimmed.to_string()
     }
@@ -133,7 +134,11 @@ pub fn apply_file_move(src: &std::path::Path, dst: &std::path::Path) -> Result<(
         let _ = std::fs::remove_file(&tmp);
         return Err(e);
     }
-    std::fs::remove_file(src)?;
+    // Best-effort: remove source. If it fails (e.g. permissions), the file is at the
+    // destination and the DB will be updated to the new path; the stale source becomes
+    // an orphan that the user can clean up manually. Returning Err here would leave
+    // dst existing while DB still points to src, which is worse.
+    let _ = std::fs::remove_file(src);
 
     Ok(())
 }
