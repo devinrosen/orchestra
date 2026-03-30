@@ -35,22 +35,21 @@ if [ "${DRY_RUN:-false}" = "true" ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 3. Dismiss any existing conductor review on this PR
+# 3. Delete any existing conductor review comments on this PR
 # ---------------------------------------------------------------------------
 OWNER_REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 
-REVIEW_IDS=$(gh api "repos/${OWNER_REPO}/pulls/${PR_NUMBER}/reviews" \
+COMMENT_IDS=$(gh api "repos/${OWNER_REPO}/issues/${PR_NUMBER}/comments" \
   --jq '[.[] | select(.body | contains("<!-- conductor-review -->")) | .id] | .[]' \
   2>/dev/null || true)
 
-if [ -n "${REVIEW_IDS}" ]; then
-  while IFS= read -r review_id; do
-    echo "Dismissing stale conductor review ${review_id}…"
-    gh api --method PUT \
-      "repos/${OWNER_REPO}/pulls/${PR_NUMBER}/reviews/${review_id}/dismissals" \
-      -f message="Superseded by new conductor review run." \
+if [ -n "${COMMENT_IDS}" ]; then
+  while IFS= read -r comment_id; do
+    echo "Deleting stale conductor review comment ${comment_id}…"
+    gh api --method DELETE \
+      "repos/${OWNER_REPO}/issues/comments/${comment_id}" \
       2>/dev/null || true
-  done <<< "${REVIEW_IDS}"
+  done <<< "${COMMENT_IDS}"
 fi
 
 # ---------------------------------------------------------------------------
@@ -186,14 +185,8 @@ trap 'rm -f "${REVIEW_BODY_FILE}"' EXIT
 echo "${REVIEW_BODY}" > "${REVIEW_BODY_FILE}"
 
 # ---------------------------------------------------------------------------
-# 6. Submit formal review
+# 6. Post review as PR comment
 # ---------------------------------------------------------------------------
-if [ "${OVERALL_APPROVED}" = "true" ]; then
-  echo "Submitting APPROVE review for PR #${PR_NUMBER}…"
-  gh pr review "${PR_NUMBER}" --approve --body-file "${REVIEW_BODY_FILE}"
-else
-  echo "Submitting REQUEST CHANGES review for PR #${PR_NUMBER}…"
-  gh pr review "${PR_NUMBER}" --request-changes --body-file "${REVIEW_BODY_FILE}"
-fi
-
-echo "Review submitted successfully."
+echo "Posting review comment on PR #${PR_NUMBER}…"
+gh pr comment "${PR_NUMBER}" --body-file "${REVIEW_BODY_FILE}"
+echo "Review comment posted successfully."
