@@ -1,0 +1,20 @@
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.14s
+Diff in /Users/devin/.conductor/workspaces/orchestra/feat-33-blocking-file-i-o-src-tauri-src/src-tauri/src/commands/media_cmd.rs:44:
+             Ok::<(), AppError>(())
+         })
+         .await
+[31m-        .map_err(|e| AppError::General(format!("update_now_playing: path check task failed: {e}")))??;
+(B[m[32m+        .map_err(|e| {
+(B[m[32m+            AppError::General(format!("update_now_playing: path check task failed: {e}"))
+(B[m[32m+        })??;
+(B[m     }
+ 
+     let file_path_clone = file_path.clone();
+$ svelte-check --tsconfig ./tsconfig.json
+Loading svelte-check in workspace: /Users/devin/.conductor/workspaces/orchestra/feat-33-blocking-file-i-o-src-tauri-src
+Getting Svelte diagnostics...
+
+svelte-check found 0 errors and 0 warnings
+<<<CONDUCTOR_OUTPUT>>>
+{"markers": ["has_lint_errors"], "context": "Lint errors found"}
+<<<END_CONDUCTOR_OUTPUT>>>
