@@ -27,16 +27,17 @@ pub async fn update_now_playing(
         stmt.query_row(params![], |row| row.get(0)).ok()
     };
 
-    if let Some(root) = library_root {
-        let file_path_for_check = file_path.clone();
-        tauri::async_runtime::spawn_blocking(move || {
-            check_path_in_root(&root, &file_path_for_check)
-        })
+    let root = library_root.ok_or_else(|| {
+        AppError::General(
+            "update_now_playing: no library root configured; cannot validate file path".to_string(),
+        )
+    })?;
+    let file_path_for_check = file_path.clone();
+    tauri::async_runtime::spawn_blocking(move || check_path_in_root(&root, &file_path_for_check))
         .await
         .map_err(|e| {
             AppError::General(format!("update_now_playing: path check task failed: {e}"))
         })??;
-    }
 
     let file_path_clone = file_path.clone();
     let cover_url = tauri::async_runtime::spawn_blocking(move || {
@@ -109,6 +110,24 @@ mod path_traversal_tests {
         let path = dir.path().join(name);
         std::fs::write(&path, b"").unwrap();
         path.to_string_lossy().into_owned()
+    }
+
+    #[test]
+    fn no_library_root_returns_error() {
+        let library_root: Option<String> = None;
+        let err = library_root
+            .ok_or_else(|| {
+                AppError::General(
+                    "update_now_playing: no library root configured; cannot validate file path"
+                        .to_string(),
+                )
+            })
+            .unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("no library root configured"),
+            "error should mention missing library root: {msg}"
+        );
     }
 
     #[test]
