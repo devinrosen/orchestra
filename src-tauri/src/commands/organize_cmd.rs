@@ -117,6 +117,16 @@ pub async fn apply_organize(
 
     let root_path = std::path::Path::new(root);
 
+    // Phase 1: move files on disk, collecting successful moves for a single batch DB update.
+    // Using a named struct here avoids lifetime issues with borrowing `items` entries.
+    struct SuccessfulMove {
+        track_id: i64,
+        current_file_path: String,
+        new_file_path: String,
+        proposed_relative_path: String,
+    }
+    let mut successful_moves: Vec<SuccessfulMove> = Vec::new();
+
     for (i, item) in items.iter().enumerate() {
         if flag.load(Ordering::Relaxed) {
             break;
@@ -158,30 +168,12 @@ pub async fn apply_organize(
 
         match organizer::apply_file_move(src, new_path) {
             Ok(()) => {
-                // Update DB immediately after each successful move so that files on disk
-                // and DB records are always consistent, even if a later move or update fails.
-                let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
-                match organization_repo::update_track_paths(
-                    &conn,
-                    item.track_id,
-                    &new_file_path,
-                    &item.proposed_relative_path,
-                ) {
-                    Ok(()) => {
-                        moved += 1;
-                    }
-                    Err(e) => {
-                        // DB update failed — attempt to reverse the file move so disk and
-                        // DB remain consistent (DB still has the old path).
-                        drop(conn);
-                        let _ = organizer::apply_file_move(new_path, src);
-                        errors.push(format!(
-                            "{}: db update failed: {}",
-                            item.current_file_path, e
-                        ));
-                        skipped += 1;
-                    }
-                }
+                successful_moves.push(SuccessfulMove {
+                    track_id: item.track_id,
+                    current_file_path: item.current_file_path.clone(),
+                    new_file_path,
+                    proposed_relative_path: item.proposed_relative_path.clone(),
+                });
             }
             Err(e) => {
                 errors.push(format!("{}: {}", item.current_file_path, e));
@@ -194,6 +186,55 @@ pub async fn apply_organize(
             total,
             current_file: item.proposed_relative_path.clone(),
         });
+    }
+
+    // Phase 2: commit all successful moves to the DB in a single transaction (one mutex
+    // acquisition, one round-trip to SQLite instead of N).
+    if !successful_moves.is_empty() {
+        let updates: Vec<(i64, String, String)> = successful_moves
+            .iter()
+            .map(|m| {
+                (
+                    m.track_id,
+                    m.new_file_path.clone(),
+                    m.proposed_relative_path.clone(),
+                )
+            })
+            .collect();
+
+        let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
+        match organization_repo::bulk_update_track_paths(&conn, &updates) {
+            Ok(()) => {
+                moved = successful_moves.len();
+            }
+            Err(db_err) => {
+                // DB update failed — attempt to reverse every file move so disk and DB
+                // remain consistent (DB still has the old paths). Log both the original
+                // error and any rollback failure so the user has full diagnostic info.
+                drop(conn);
+                skipped += successful_moves.len();
+                for m in &successful_moves {
+                    let src = std::path::Path::new(&m.current_file_path);
+                    let dst = std::path::Path::new(&m.new_file_path);
+                    match organizer::apply_file_move(dst, src) {
+                        Ok(()) => {
+                            errors.push(format!(
+                                "{}: db update failed, file rolled back: {}",
+                                m.current_file_path, db_err
+                            ));
+                        }
+                        Err(rollback_err) => {
+                            errors.push(format!(
+                                "{}: db update failed AND rollback failed — \
+                                 file is at {} but DB still points to original path. \
+                                 DB error: {}; rollback error: {}",
+                                m.current_file_path, m.new_file_path, db_err, rollback_err
+                            ));
+                        }
+                    }
+                }
+            }
+        }
     }
 
     let duration_ms = start.elapsed().as_millis() as u64;

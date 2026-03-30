@@ -351,4 +351,15 @@ mod tests {
         let result = apply_pattern("{title}", &track);
         assert_eq!(result, "my_track");
     }
+
+    #[test]
+    fn test_sanitize_truncates_at_char_boundary_not_byte_boundary() {
+        // Each '文' is 3 bytes in UTF-8; 201 of them exceed the 200-char limit.
+        // Truncation must happen at a char boundary (char 200), not at byte 200 (which
+        // would land mid-sequence and panic when slicing the string).
+        let long_unicode: String = std::iter::repeat('文').take(201).collect();
+        let result = sanitize_path_component(&long_unicode);
+        assert_eq!(result.chars().count(), 200);
+        assert!(result.is_char_boundary(result.len()));
+    }
 }
