@@ -28,11 +28,10 @@ pub fn update_track_paths(
     new_file_path: &str,
     new_relative_path: &str,
 ) -> Result<(), AppError> {
-    conn.execute(
-        "UPDATE tracks SET file_path = ?1, relative_path = ?2 WHERE id = ?3",
-        params![new_file_path, new_relative_path, track_id],
-    )?;
-    Ok(())
+    bulk_update_track_paths(
+        conn,
+        &[(track_id, new_file_path.to_string(), new_relative_path.to_string())],
+    )
 }
 
 /// Batch-updates file_path and relative_path for multiple tracks in a single transaction.
