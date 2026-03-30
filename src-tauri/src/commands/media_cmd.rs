@@ -121,7 +121,11 @@ mod path_traversal_tests {
     #[test]
     fn nonexistent_file_returns_diagnostic_error() {
         let tmp = TempDir::new().unwrap();
-        let missing = tmp.path().join("missing.flac").to_string_lossy().into_owned();
+        let missing = tmp
+            .path()
+            .join("missing.flac")
+            .to_string_lossy()
+            .into_owned();
         let err = check_path_in_root(tmp.path().to_str().unwrap(), &missing).unwrap_err();
         let msg = err.to_string();
         assert!(
