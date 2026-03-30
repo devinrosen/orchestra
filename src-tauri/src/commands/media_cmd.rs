@@ -1,4 +1,5 @@
 use std::sync::Mutex;
+use std::time::Duration;
 
 use rusqlite::{params, Connection};
 
@@ -84,12 +85,17 @@ pub async fn update_playback_state(
     playing: bool,
     position_secs: f64,
 ) -> Result<(), AppError> {
+    if !position_secs.is_finite() || position_secs < 0.0 {
+        return Err(AppError::General(
+            "update_playback_state: position_secs must be a finite non-negative value".to_string(),
+        ));
+    }
     let s = session.lock().map_err(|e| {
         AppError::General(format!(
             "update_playback_state: media session lock poisoned: {e}"
         ))
     })?;
-    s.update_playback(playing, position_secs);
+    s.update_playback(playing, Duration::from_secs_f64(position_secs));
     Ok(())
 }
 
