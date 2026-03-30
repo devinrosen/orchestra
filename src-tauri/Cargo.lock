@@ -2743,7 +2743,6 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
- "souvlaki",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
@@ -2767,6 +2766,7 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "souvlaki",
  "tempfile",
  "thiserror 2.0.18",
  "unicode-normalization",
@@ -2781,12 +2781,10 @@ dependencies = [
  "anyhow",
  "crossterm",
  "dirs",
- "lofty",
  "orchestra-core",
  "ratatui",
  "rodio",
  "rusqlite",
- "souvlaki",
 ]
 
 [[package]]
