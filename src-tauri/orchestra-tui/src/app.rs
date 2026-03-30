@@ -1,6 +1,9 @@
+use std::time::Duration;
+
 use crossterm::event::KeyCode;
 use orchestra_core::models::track::{AlbumNode, ArtistNode, LibraryTree, Track};
 
+use crate::media_session::{self, MediaSessionHandle};
 use crate::player::PlayerHandle;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -48,6 +51,7 @@ pub struct App {
     pub should_quit: bool,
     pub filter_mode: bool,
     pub filter_text: String,
+    pub media_session: Option<MediaSessionHandle>,
 }
 
 impl App {
@@ -65,13 +69,65 @@ impl App {
             should_quit: false,
             filter_mode: false,
             filter_text: String::new(),
+            media_session: Some(MediaSessionHandle::spawn()),
         }
     }
 
-    /// Drain audio thread errors into `status_msg`. Call once per frame.
+    /// Drain audio thread errors and media remote events. Call once per frame.
     pub fn tick(&mut self) {
         while let Ok(err) = self.player.errors.try_recv() {
             self.status_msg = Some(err);
+        }
+
+        // Collect remote commands first to avoid borrow conflicts with self.play_selected()
+        use crate::media_session::RemoteMediaEvent;
+        let remote_events: Vec<RemoteMediaEvent> = if let Some(ref session) = self.media_session {
+            std::iter::from_fn(|| session.remote_rx.try_recv().ok()).collect()
+        } else {
+            vec![]
+        };
+
+        for event in remote_events {
+            match event {
+                RemoteMediaEvent::Play => {
+                    if let Some(ref mut np) = self.now_playing {
+                        if np.is_paused {
+                            self.player.resume();
+                            np.is_paused = false;
+                            if let Some(ref session) = self.media_session {
+                                session.update_playback(true, Duration::ZERO);
+                            }
+                        }
+                    }
+                }
+                RemoteMediaEvent::Pause => {
+                    if let Some(ref mut np) = self.now_playing {
+                        if !np.is_paused {
+                            self.player.pause();
+                            np.is_paused = true;
+                            if let Some(ref session) = self.media_session {
+                                session.update_playback(false, Duration::ZERO);
+                            }
+                        }
+                    }
+                }
+                RemoteMediaEvent::Next => {
+                    let max = self.current_tracks().len().saturating_sub(1);
+                    if self.selected_track < max {
+                        self.selected_track += 1;
+                        self.play_selected();
+                    }
+                }
+                RemoteMediaEvent::Previous => {
+                    if self.selected_track > 0 {
+                        self.selected_track -= 1;
+                        self.play_selected();
+                    }
+                }
+                RemoteMediaEvent::Seek(_) => {
+                    // rodio 0.20 does not support seek — ignore silently
+                }
+            }
         }
     }
 
@@ -124,7 +180,7 @@ impl App {
     }
 
     fn play_selected(&mut self) {
-        if let Some(track) = self.current_tracks().get(self.selected_track) {
+        if let Some(track) = self.current_tracks().get(self.selected_track).cloned() {
             let title = track
                 .title
                 .clone()
@@ -138,11 +194,24 @@ impl App {
             self.player.play(track.file_path.clone());
             self.player.set_volume(self.volume);
             self.now_playing = Some(NowPlaying {
-                title,
-                artist,
+                title: title.clone(),
+                artist: artist.clone(),
                 is_paused: false,
             });
             self.status_msg = None;
+
+            // Update Now Playing metadata
+            if let Some(ref session) = self.media_session {
+                let cover_url = media_session::extract_cover(&track.file_path);
+                session.update_metadata(
+                    Some(title),
+                    Some(artist),
+                    track.album.clone(),
+                    track.duration_secs.map(|d| d as f64),
+                    cover_url,
+                );
+                session.update_playback(true, Duration::ZERO);
+            }
         }
     }
 
@@ -296,9 +365,15 @@ impl App {
                     if np.is_paused {
                         self.player.resume();
                         np.is_paused = false;
+                        if let Some(ref session) = self.media_session {
+                            session.update_playback(true, Duration::ZERO);
+                        }
                     } else {
                         self.player.pause();
                         np.is_paused = true;
+                        if let Some(ref session) = self.media_session {
+                            session.update_playback(false, Duration::ZERO);
+                        }
                     }
                 }
             }

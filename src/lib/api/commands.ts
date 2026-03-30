@@ -272,3 +272,29 @@ export function getRecentlyAdded(days: number, limit: number): Promise<Track[]> 
 export function getRecentlyPlayed(limit: number): Promise<Track[]> {
   return invoke("get_recently_played", { limit });
 }
+
+export function updateNowPlaying(params: {
+  title?: string | null;
+  artist?: string | null;
+  album?: string | null;
+  durationSecs?: number | null;
+  filePath: string;
+}): Promise<void> {
+  return invoke("update_now_playing", {
+    title: params.title ?? null,
+    artist: params.artist ?? null,
+    album: params.album ?? null,
+    durationSecs: params.durationSecs ?? null,
+    filePath: params.filePath,
+  });
+}
+
+export function updatePlaybackState(params: {
+  playing: boolean;
+  positionSecs: number;
+}): Promise<void> {
+  return invoke("update_playback_state", {
+    playing: params.playing,
+    positionSecs: params.positionSecs,
+  });
+}

@@ -12,6 +12,7 @@ use rusqlite::{Connection, OpenFlags};
 
 mod app;
 mod db;
+mod media_session;
 mod player;
 mod ui;
 

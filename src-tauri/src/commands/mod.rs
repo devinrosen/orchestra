@@ -1,4 +1,5 @@
 pub mod device_cmd;
+pub mod media_cmd;
 pub mod favorite_cmd;
 pub mod library;
 pub mod metadata_cmd;
