@@ -1,4 +1,5 @@
 use std::sync::Mutex;
+use std::time::Duration;
 
 use rusqlite::{params, Connection};
 
@@ -66,6 +67,6 @@ pub async fn update_playback_state(
             "update_playback_state: media session lock poisoned: {e}"
         ))
     })?;
-    s.update_playback(playing, position_secs);
+    s.update_playback(playing, Duration::from_secs_f64(position_secs));
     Ok(())
 }

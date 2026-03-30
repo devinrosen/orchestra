@@ -125,6 +125,23 @@ impl App {
                         self.play_selected();
                     }
                 }
+                RemoteMediaEvent::Toggle => {
+                    if let Some(ref mut np) = self.now_playing {
+                        if np.is_paused {
+                            self.player.resume();
+                            np.is_paused = false;
+                            if let Some(ref session) = self.media_session {
+                                session.update_playback(true, Duration::ZERO);
+                            }
+                        } else {
+                            self.player.pause();
+                            np.is_paused = true;
+                            if let Some(ref session) = self.media_session {
+                                session.update_playback(false, Duration::ZERO);
+                            }
+                        }
+                    }
+                }
                 RemoteMediaEvent::Seek(_) => {
                     // rodio 0.20 does not support seek — ignore silently
                 }
