@@ -73,7 +73,10 @@ impl MediaSessionState {
     }
 
     pub fn update_playback(&self, playing: bool, position: Duration) {
-        if let Err(e) = self.tx.try_send(MediaCmd::UpdatePlayback { playing, position }) {
+        if let Err(e) = self
+            .tx
+            .try_send(MediaCmd::UpdatePlayback { playing, position })
+        {
             if matches!(e, mpsc::TrySendError::Disconnected(_)) {
                 eprintln!("[media_session] update_playback: channel disconnected — media session thread has exited");
             }

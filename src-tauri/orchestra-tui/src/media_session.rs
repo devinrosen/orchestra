@@ -1,8 +1,8 @@
 use std::sync::mpsc;
 use std::time::Duration;
 
-pub use orchestra_core::media_session::{MediaCmd, RemoteMediaEvent};
 use orchestra_core::media_session::spawn_session_thread;
+pub use orchestra_core::media_session::{MediaCmd, RemoteMediaEvent};
 
 /// Channel-based handle to the media session background thread.
 pub struct MediaSessionHandle {
