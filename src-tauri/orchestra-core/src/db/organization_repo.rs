@@ -123,13 +123,7 @@ mod tests {
         let tracks = get_all_tracks_for_organize(&conn, "/music").unwrap();
         let id = tracks[0].id.unwrap();
 
-        update_track_paths(
-            &conn,
-            id,
-            "/music/new/path.flac",
-            "new/path.flac",
-        )
-        .unwrap();
+        update_track_paths(&conn, id, "/music/new/path.flac", "new/path.flac").unwrap();
 
         let updated = get_all_tracks_for_organize(&conn, "/music").unwrap();
         let t = updated.iter().find(|t| t.id == Some(id)).unwrap();

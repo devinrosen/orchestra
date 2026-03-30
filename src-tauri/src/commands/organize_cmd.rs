@@ -35,7 +35,10 @@ pub async fn preview_organize(
     for track in &tracks {
         let track_id = track.id.unwrap_or(0);
         let proposed = organizer::apply_pattern(&pattern, track);
-        proposed_map.entry(proposed.clone()).or_default().push(track_id);
+        proposed_map
+            .entry(proposed.clone())
+            .or_default()
+            .push(track_id);
         items.push(OrganizePreviewItem {
             track_id,
             current_relative_path: track.relative_path.clone(),
@@ -62,7 +65,9 @@ pub async fn preview_organize(
                 .get(&item.proposed_relative_path)
                 .and_then(|v| v.iter().find(|&&id| id != item.track_id))
                 .copied();
-            item.status = OrganizeItemStatus::Collision { conflicting_track_id: conflicting };
+            item.status = OrganizeItemStatus::Collision {
+                conflicting_track_id: conflicting,
+            };
             collisions += 1;
         }
     }
@@ -158,7 +163,11 @@ pub async fn apply_organize(
     let duration_ms = start.elapsed().as_millis() as u64;
     let _ = on_progress.send(ProgressEvent::OrganizeComplete { moved, duration_ms });
 
-    Ok(OrganizeApplyResult { moved, skipped, errors })
+    Ok(OrganizeApplyResult {
+        moved,
+        skipped,
+        errors,
+    })
 }
 
 /// Tries an atomic rename first (same filesystem); falls back to copy-then-rename for
