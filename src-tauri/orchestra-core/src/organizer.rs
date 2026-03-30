@@ -360,6 +360,5 @@ mod tests {
         let long_unicode: String = std::iter::repeat('文').take(201).collect();
         let result = sanitize_path_component(&long_unicode);
         assert_eq!(result.chars().count(), 200);
-        assert!(result.is_char_boundary(result.len()));
     }
 }

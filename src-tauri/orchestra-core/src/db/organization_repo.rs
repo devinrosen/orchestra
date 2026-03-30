@@ -28,21 +28,14 @@ pub fn update_track_paths(
     new_file_path: &str,
     new_relative_path: &str,
 ) -> Result<(), AppError> {
-    bulk_update_track_paths(
-        conn,
-        &[(
-            track_id,
-            new_file_path.to_string(),
-            new_relative_path.to_string(),
-        )],
-    )
+    bulk_update_track_paths(conn, &[(track_id, new_file_path, new_relative_path)])
 }
 
 /// Batch-updates file_path and relative_path for multiple tracks in a single transaction.
 /// Each element of `updates` is `(track_id, new_file_path, new_relative_path)`.
 pub fn bulk_update_track_paths(
     conn: &Connection,
-    updates: &[(i64, String, String)],
+    updates: &[(i64, &str, &str)],
 ) -> Result<(), AppError> {
     let tx = conn.unchecked_transaction()?;
     for (track_id, new_file_path, new_relative_path) in updates {
@@ -142,8 +135,8 @@ mod tests {
         let id1 = tracks[1].id.unwrap();
 
         let updates = vec![
-            (id0, "/music/a/b.flac".to_string(), "a/b.flac".to_string()),
-            (id1, "/music/c/d.flac".to_string(), "c/d.flac".to_string()),
+            (id0, "/music/a/b.flac", "a/b.flac"),
+            (id1, "/music/c/d.flac", "c/d.flac"),
         ];
         bulk_update_track_paths(&conn, &updates).unwrap();
 
