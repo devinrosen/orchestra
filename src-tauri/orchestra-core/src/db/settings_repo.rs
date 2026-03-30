@@ -4,8 +4,11 @@ use crate::error::AppError;
 
 pub fn get_setting(conn: &Connection, key: &str) -> Result<Option<String>, AppError> {
     let mut stmt = conn.prepare("SELECT value FROM settings WHERE key = ?1")?;
-    let result = stmt.query_row(params![key], |row| row.get(0)).ok();
-    Ok(result)
+    match stmt.query_row(params![key], |row| row.get(0)) {
+        Ok(value) => Ok(Some(value)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(AppError::from(e)),
+    }
 }
 
 pub fn set_setting(conn: &Connection, key: &str, value: &str) -> Result<(), AppError> {
