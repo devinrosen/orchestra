@@ -202,7 +202,11 @@ mod tests {
         } else {
             dst_mtime.duration_since(src_mtime).unwrap_or_default()
         };
-        assert!(diff.as_secs() <= 1, "mtime difference too large: {:?}", diff);
+        assert!(
+            diff.as_secs() <= 1,
+            "mtime difference too large: {:?}",
+            diff
+        );
     }
 
     #[test]
@@ -228,6 +232,9 @@ mod tests {
         remove_empty_parents(&empty).unwrap();
 
         assert!(keep_dir.exists(), "non-empty ancestor should survive");
-        assert!(!base.path().join("a/b").exists(), "empty child should be removed");
+        assert!(
+            !base.path().join("a/b").exists(),
+            "empty child should be removed"
+        );
     }
 }

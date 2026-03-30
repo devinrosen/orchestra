@@ -79,8 +79,7 @@ mod tests {
         create_file(&dir, "ignore/track.flac");
         create_file(&dir, "ignore/nested/track.mp3");
 
-        let results: Vec<_> =
-            walk_directory_iter(dir.path(), &["ignore/**".to_string()]).collect();
+        let results: Vec<_> = walk_directory_iter(dir.path(), &["ignore/**".to_string()]).collect();
         assert_eq!(results.len(), 1);
         assert!(results[0].to_string_lossy().contains("keep"));
     }
