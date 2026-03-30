@@ -6,3 +6,5 @@ src-tauri/target/
 .vite/
 test-results/
 PLAN.md
+.conductor.db
+script-*.out
