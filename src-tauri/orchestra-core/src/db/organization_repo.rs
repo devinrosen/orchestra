@@ -30,7 +30,11 @@ pub fn update_track_paths(
 ) -> Result<(), AppError> {
     bulk_update_track_paths(
         conn,
-        &[(track_id, new_file_path.to_string(), new_relative_path.to_string())],
+        &[(
+            track_id,
+            new_file_path.to_string(),
+            new_relative_path.to_string(),
+        )],
     )
 }
 
