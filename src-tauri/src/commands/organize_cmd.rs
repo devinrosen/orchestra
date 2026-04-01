@@ -145,10 +145,7 @@ pub async fn apply_organize(
         let db_file_path = match db_paths.get(&item.track_id) {
             Some(p) => p,
             None => {
-                errors.push(format!(
-                    "track_id {}: not found in database",
-                    item.track_id
-                ));
+                errors.push(format!("track_id {}: not found in database", item.track_id));
                 skipped += 1;
                 continue;
             }
@@ -165,10 +162,7 @@ pub async fn apply_organize(
         // Security: verify current_file_path is within library_root
         let src = std::path::Path::new(db_file_path);
         if !src.starts_with(root_path) {
-            errors.push(format!(
-                "{}: path is outside library root",
-                db_file_path
-            ));
+            errors.push(format!("{}: path is outside library root", db_file_path));
             skipped += 1;
             continue;
         }
