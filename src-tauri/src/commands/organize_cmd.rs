@@ -117,6 +117,14 @@ pub async fn apply_organize(
 
     let root_path = std::path::Path::new(root);
 
+    // Security: fetch authoritative file_path for every track_id from the DB so we never
+    // operate on a client-supplied path that doesn't match the actual track record.
+    let track_ids: Vec<i64> = items.iter().map(|it| it.track_id).collect();
+    let db_paths = {
+        let conn = db.lock().map_err(|e| AppError::General(e.to_string()))?;
+        organization_repo::get_file_paths_by_ids(&conn, &track_ids)?
+    };
+
     // Phase 1: move files on disk, collecting successful moves for a single batch DB update.
     // Using a named struct here avoids lifetime issues with borrowing `items` entries.
     struct SuccessfulMove {
@@ -132,12 +140,34 @@ pub async fn apply_organize(
             break;
         }
 
+        // Security: use the DB-authoritative path instead of the client-supplied one.
+        // Reject any item whose track_id is unknown or whose client path doesn't match.
+        let db_file_path = match db_paths.get(&item.track_id) {
+            Some(p) => p,
+            None => {
+                errors.push(format!(
+                    "track_id {}: not found in database",
+                    item.track_id
+                ));
+                skipped += 1;
+                continue;
+            }
+        };
+        if db_file_path != &item.current_file_path {
+            errors.push(format!(
+                "track_id {}: client path '{}' does not match database path '{}'",
+                item.track_id, item.current_file_path, db_file_path
+            ));
+            skipped += 1;
+            continue;
+        }
+
         // Security: verify current_file_path is within library_root
-        let src = std::path::Path::new(&item.current_file_path);
+        let src = std::path::Path::new(db_file_path);
         if !src.starts_with(root_path) {
             errors.push(format!(
                 "{}: path is outside library root",
-                item.current_file_path
+                db_file_path
             ));
             skipped += 1;
             continue;
@@ -161,7 +191,7 @@ pub async fn apply_organize(
         let new_path = std::path::Path::new(&new_file_path);
 
         // Skip if source equals destination (already correct)
-        if item.current_file_path == new_file_path {
+        if db_file_path.as_str() == new_file_path {
             skipped += 1;
             continue;
         }
@@ -170,13 +200,13 @@ pub async fn apply_organize(
             Ok(()) => {
                 successful_moves.push(SuccessfulMove {
                     track_id: item.track_id,
-                    current_file_path: item.current_file_path.clone(),
+                    current_file_path: db_file_path.clone(),
                     new_file_path,
                     proposed_relative_path: item.proposed_relative_path.clone(),
                 });
             }
             Err(e) => {
-                errors.push(format!("{}: {}", item.current_file_path, e));
+                errors.push(format!("{}: {}", db_file_path, e));
                 skipped += 1;
             }
         }

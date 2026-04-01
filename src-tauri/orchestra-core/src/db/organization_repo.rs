@@ -31,6 +31,37 @@ pub fn update_track_paths(
     bulk_update_track_paths(conn, &[(track_id, new_file_path, new_relative_path)])
 }
 
+/// Returns the authoritative file_path for a set of track IDs.
+/// The returned map contains only IDs that exist in the database.
+pub fn get_file_paths_by_ids(
+    conn: &Connection,
+    ids: &[i64],
+) -> Result<std::collections::HashMap<i64, String>, AppError> {
+    if ids.is_empty() {
+        return Ok(std::collections::HashMap::new());
+    }
+    let placeholders: String = ids
+        .iter()
+        .enumerate()
+        .map(|(i, _)| format!("?{}", i + 1))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!(
+        "SELECT id, file_path FROM tracks WHERE id IN ({})",
+        placeholders
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let mut map = std::collections::HashMap::with_capacity(ids.len());
+    let rows = stmt.query_map(rusqlite::params_from_iter(ids.iter()), |row| {
+        Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+    })?;
+    for row in rows {
+        let (id, path) = row?;
+        map.insert(id, path);
+    }
+    Ok(map)
+}
+
 /// Batch-updates file_path and relative_path for multiple tracks in a single transaction.
 /// Each element of `updates` is `(track_id, new_file_path, new_relative_path)`.
 pub fn bulk_update_track_paths(
