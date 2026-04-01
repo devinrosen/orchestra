@@ -1,7 +1,6 @@
 pub mod device_cmd;
 pub mod favorite_cmd;
 pub mod library;
-pub mod media_cmd;
 pub mod metadata_cmd;
 pub mod playlist_cmd;
 pub mod profile;

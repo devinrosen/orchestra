@@ -1,7 +1,6 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
 import type { Track, AlbumArt } from "../api/types";
-import { getTrackArtwork, recordPlay, updateNowPlaying, updatePlaybackState } from "../api/commands";
+import { getTrackArtwork, recordPlay } from "../api/commands";
 import { equalizerStore } from "./equalizer.svelte";
 
 class PlayerStore {
@@ -28,7 +27,6 @@ class PlayerStore {
   private analyser: AnalyserNode | null = null;
   private sourceNode: MediaElementAudioSourceNode | null = null;
   private lastPositionUpdateTime = 0;
-  private mediaRemoteUnlisten: (() => void) | null = null;
 
   getAnalyser(): AnalyserNode | null {
     return this.analyser;
@@ -72,11 +70,17 @@ class PlayerStore {
     el.addEventListener("timeupdate", () => {
       this.currentTime = el.currentTime;
       this.duration = el.duration || 0;
-      // Throttle Now Playing position updates to ~1 Hz to reduce IPC overhead
+      // Throttle position state updates to ~1 Hz
       const now = Date.now();
       if (now - this.lastPositionUpdateTime > 1000) {
         this.lastPositionUpdateTime = now;
-        updatePlaybackState({ playing: !el.paused, positionSecs: el.currentTime }).catch(() => {});
+        if ("mediaSession" in navigator && el.duration && isFinite(el.duration)) {
+          navigator.mediaSession.setPositionState({
+            duration: el.duration,
+            playbackRate: el.playbackRate,
+            position: el.currentTime,
+          });
+        }
       }
     });
 
@@ -86,39 +90,24 @@ class PlayerStore {
 
     el.addEventListener("play", () => {
       this.playing = true;
-      updatePlaybackState({ playing: true, positionSecs: el.currentTime }).catch(() => {});
+      if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "playing";
     });
 
     el.addEventListener("pause", () => {
       this.playing = false;
-      updatePlaybackState({ playing: false, positionSecs: el.currentTime }).catch(() => {});
+      if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "paused";
     });
 
-    // Register Tauri remote command listener (skipped in Playwright / non-Tauri context).
-    // Call the previous unlisten handle first to prevent duplicate listeners if
-    // bindAudio is called more than once (e.g., on component remount).
-    if (typeof window !== "undefined" && (window as any).__TAURI_INTERNALS__) {
-      if (this.mediaRemoteUnlisten) {
-        this.mediaRemoteUnlisten();
-        this.mediaRemoteUnlisten = null;
-      }
-      listen<Record<string, unknown>>("media-remote", (event) => {
-        const e = event.payload;
-        if (e.type === "Play") this.safePlay();
-        else if (e.type === "Pause") this.audio?.pause();
-        else if (e.type === "Toggle") {
-          if (this.audio?.paused) this.safePlay();
-          else this.audio?.pause();
-        } else if (e.type === "Next") this.next();
-        else if (e.type === "Previous") this.previous();
-        else if (e.type === "Seek") this.seek(e.position as number);
-      })
-        .then((unlisten) => {
-          this.mediaRemoteUnlisten = unlisten;
-        })
-        .catch((err) => {
-          console.error("[PlayerStore] Failed to register media-remote listener:", err);
-        });
+    // Wire OS media keys / Now Playing controls via the Web Media Session API.
+    // This runs in both Tauri and the Playwright UI-test environment.
+    if ("mediaSession" in navigator) {
+      navigator.mediaSession.setActionHandler("play", () => this.safePlay());
+      navigator.mediaSession.setActionHandler("pause", () => this.audio?.pause());
+      navigator.mediaSession.setActionHandler("nexttrack", () => this.next());
+      navigator.mediaSession.setActionHandler("previoustrack", () => this.previous());
+      navigator.mediaSession.setActionHandler("seekto", (details) => {
+        if (details.seekTime != null) this.seek(details.seekTime);
+      });
     }
 
     el.addEventListener("error", () => {
@@ -297,14 +286,14 @@ class PlayerStore {
     if (this.currentTrack.id != null) {
       recordPlay(this.currentTrack.id).catch(() => {});
     }
-    // Update Now Playing — fire-and-forget
-    updateNowPlaying({
-      title: this.currentTrack.title ?? null,
-      artist: this.currentTrack.artist ?? this.currentTrack.album_artist ?? null,
-      album: this.currentTrack.album ?? null,
-      durationSecs: this.currentTrack.duration_secs ?? null,
-      filePath: this.currentTrack.file_path,
-    }).catch(() => {});
+    // Set OS Now Playing metadata (artwork updated async in loadArtwork)
+    if ("mediaSession" in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: this.currentTrack.title ?? undefined,
+        artist: this.currentTrack.artist ?? this.currentTrack.album_artist ?? undefined,
+        album: this.currentTrack.album ?? undefined,
+      });
+    }
   }
 
   private async loadArtwork() {
@@ -316,6 +305,15 @@ class PlayerStore {
       this.artwork = await getTrackArtwork(this.currentTrack.file_path);
     } catch {
       this.artwork = null;
+    }
+    if ("mediaSession" in navigator && this.artwork && this.currentTrack) {
+      const track = this.currentTrack;
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: track.title ?? undefined,
+        artist: track.artist ?? track.album_artist ?? undefined,
+        album: track.album ?? undefined,
+        artwork: [{ src: `data:${this.artwork.mime_type};base64,${this.artwork.data}`, type: this.artwork.mime_type }],
+      });
     }
   }
 }
