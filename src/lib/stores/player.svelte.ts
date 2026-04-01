@@ -125,9 +125,9 @@ class PlayerStore {
       const code = el.error?.code;
       const msg = el.error?.message || "Unknown playback error";
       if (code === MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED) {
-        this.error = "Format not supported by browser";
+        this.error = "File not accessible — check that your library drive is connected";
       } else if (code === MediaError.MEDIA_ERR_NETWORK) {
-        this.error = "File not found or network error";
+        this.error = "File not accessible — check that your library drive is connected";
       } else {
         this.error = msg;
       }
