@@ -65,4 +65,12 @@ pub enum ProgressEvent {
         total_files: usize,
         current_file: String,
     },
+    #[serde(rename = "organize_progress")]
+    OrganizeProgress {
+        completed: usize,
+        total: usize,
+        current_file: String,
+    },
+    #[serde(rename = "organize_complete")]
+    OrganizeComplete { moved: usize, duration_ms: u64 },
 }
